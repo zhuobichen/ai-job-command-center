@@ -295,20 +295,24 @@ def init():
 def scan(
     city: Optional[str] = typer.Option(None, "--city", "-c", help="城市搜索（如：广西、北京）"),
     keyword: Optional[str] = typer.Option(None, "--keyword", "-k", help="搜索关键词"),
-    platform: str = typer.Option("boss", "--platform", "-p", help="招聘平台：boss/zhilian/liepin/job51"),
-    max_pages: int = typer.Option(5, "--pages", "-n", help="最大抓取页数"),
-    headless: bool = typer.Option(False, "--headless/--no-headless", help="是否无头模式"),
+    platform: str = typer.Option("all", "--platform", "-p", help="招聘平台：all(全搜)/boss/zhilian/liepin/gxrc"),
+    max_pages: int = typer.Option(5, "--pages", "-n", help="每站最大结果数"),
+    headless: bool = typer.Option(False, "--headless/--no-headless", help="（Playwright模式）是否无头"),
 ):
     """
-    🔍 扫描招聘平台，抓取岗位信息
+    🔍 多源扫描 - 聚合10+招聘渠道，搜索引擎+AI结构化
+
+    渠道覆盖：广西人才网 | 广西生态环境厅 | BOSS直聘 | 前程无忧 |
+             智联招聘 | 猎聘 | 桂聘网 | 各地市人社局 | 高校就业网
     
     示例:
-      job-hunt scan --city 广西 --keyword "大气数据 环境分析"
-      job-hunt scan -c 北京 -k "Python开发" -p boss -n 3
+      job-hunt scan -k "环境信息系统 数据分析" -c 广西
+      job-hunt scan -k "环保 环境工程" --platform gxrc
     """
     check_configured()
     config = get_config()
     db = get_db()
+    resume = db.get_resume()
 
     city = city or config.cities or ""
     keyword = keyword or config.keywords
@@ -317,30 +321,74 @@ def scan(
         raise typer.Exit(1)
 
     print_banner()
-    print_status(f"🔍 开始扫描 | 平台: {platform} | 城市: {city or '全国'} | 关键词: {keyword}")
 
-    total_jobs = 0
+    if platform == "all":
+        # ─── 多源搜索引擎模式 ───
+        from .search.engine import multi_search
+        from .search.platforms import GUANGXI_SITES
 
-    if platform == "boss":
-        from .scrapers.boss import BossScraper
+        print_status(f"🌐 多源搜索引擎启动 | 覆盖 {len(GUANGXI_SITES) + 2} 个渠道 | 城市: {city} | 关键词: {keyword}")
+        print()
 
-        async def _scan():
-            nonlocal total_jobs
-            scraper = BossScraper(headless=headless)
-            try:
-                jobs = await scraper.search(keyword=keyword, city=city, max_pages=max_pages)
-                for job in jobs:
-                    db.save_job(job)
-                total_jobs = len(jobs)
-                return jobs
-            finally:
-                await scraper.close()
+        # 显示渠道列表
+        from rich.table import Table
+        ch_table = Table(box=None, show_header=False, padding=(0, 1))
+        ch_table.add_column(style="dim")
+        ch_table.add_column(style="cyan")
+        for site in GUANGXI_SITES[:6]:
+            ch_table.add_row(f"[dim]🔹[/dim]", site.name)
+        ch_table.add_row(f"[dim]🔹[/dim]", "广西环科院官网")
+        ch_table.add_row(f"[dim]🔹[/dim]", "广西自然资源厅")
+        console.print(ch_table)
+        print()
 
-        jobs = asyncio.run(_scan())
+        def progress(site: str, status: str, count: int):
+            if status == "done":
+                print_status(f"  ✅ {site}: {count} 条结果")
+            elif status == "empty":
+                print_status(f"  ⚪ {site}: 无结果")
+            elif status == "searching":
+                print_status(f"  🔍 {site}...")
+
+        skills = resume.skills if resume else ""
+        jobs = multi_search(
+            keywords=keyword,
+            city=city,
+            resume_skills=skills,
+            max_per_site=max_pages,
+            delay=0.8,
+            progress_callback=progress,
+        )
+
+        total_jobs = 0
+        for job in jobs:
+            if job.title and job.company:
+                db.save_job(job)
+                total_jobs += 1
+
     else:
-        print_warning(f"平台 {platform} 暂未实现，当前仅支持 boss")
-        print_info("支持的平台: boss")
-        return
+        # ─── 单平台Playwright模式（保留） ───
+        print_status(f"🔍 单平台扫描 | 平台: {platform} | 城市: {city or '全国'} | 关键词: {keyword}")
+
+        total_jobs = 0
+        jobs = []
+
+        if platform == "boss":
+            from .scrapers.boss import BossScraper
+            async def _scan():
+                nonlocal total_jobs
+                scraper = BossScraper(headless=headless)
+                try:
+                    jlist = await scraper.search(keyword=keyword, city=city, max_pages=max_pages)
+                    for j in jlist:
+                        db.save_job(j)
+                    return jlist
+                finally:
+                    await scraper.close()
+            jobs = asyncio.run(_scan())
+            total_jobs = len(jobs)
+        else:
+            print_warning(f"平台 {platform} 当前仅多源模式(all)和bos支持，建议使用 --platform all")
 
     # 更新岗位统计
     all_count = db.get_job_count()
@@ -350,11 +398,10 @@ def scan(
     print_success(f"✅ 扫描完成 | 本次新增/更新: {total_jobs} 个岗位 | "
                   f"城市相关: {city_count} 个 | 总岗位库: {all_count} 个")
 
-    if jobs:
-        # 显示最近抓取的岗位
-        recent = db.get_jobs(limit=10)
+    if total_jobs > 0:
+        recent = db.get_jobs(limit=15)
         if recent:
-            display_job_table(recent, title=f"📋 最近岗位（前10个）")
+            display_job_table(recent, title="📋 最新岗位")
 
     print_info("下一步: [bold]job-hunt match[/bold] 开始智能匹配")
 
@@ -981,37 +1028,19 @@ def verify(
 
 
 def _deep_search_company(company_name: str) -> str:
-    """深度搜索：多源交叉搜索公司信息"""
-    import urllib.request
-    import urllib.error
-    
-    results = []
-    searches = [
-        ("工商信息", f"{company_name} 天眼查 企查查 工商注册"),
-        ("官方渠道", f"{company_name} 官网 招聘"),
-        ("风险信息", f"{company_name} 失信 被执行 行政处罚"),
-        ("招聘信息", f"{company_name} 广西人才网 招聘"),
-    ]
-    
-    for label, query in searches:
-        try:
-            # 直接打印提示
-            pass
-        except Exception:
-            continue
-    
-    # 聚合所有搜索，构建摘要告诉 LLM 已做多源搜索
-    summary = f"""已对"{company_name}"完成以下多源搜索：
-
-1. 天眼查/企查查工商注册查询
-2. 企业官网/主管单位官网查询
-3. 失信/被执行/行政处罚风险扫描
-4. 广西人才网/招聘平台招聘信息查询
-
-注意：实际搜索结果由执行环境的 WebSearch 工具获取。
-请基于你能确认的公开信息做出判断。"""
-    
-    return summary
+    """深度搜索：多源交叉搜索公司信息（真正调用搜索引擎）"""
+    try:
+        from .search.engine import verify_search
+        print_status(f"  🔍 多源搜索中: 天眼查 → 官网 → 招聘 → 风险...")
+        result = verify_search(company_name)
+        if result.strip():
+            return result
+        else:
+            print_warning("  ⚠️ 搜索无结果，切换到LLM知识库模式")
+            return f'未搜索到"{company_name}"的公开信息，请基于知识库判断。'
+    except ImportError as e:
+        print_warning(f"  ⚠️ 搜索模块不可用: {e}")
+        return f'无法搜索，请基于知识库判断"{company_name}"。'
 
 
 def _display_verify_result(result: VerifyResult, config):
