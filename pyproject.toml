@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "job-hunt"
+version = "0.1.0"
+description = "AI智慧求职系统 - 纯CLI、本地运行、面向中国招聘市场"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "AI Job Hunt Team"}]
+keywords = ["job", "career", "ai", "cli", "recruitment", "china"]
+
+dependencies = [
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "litellm>=1.35.0",
+    "playwright>=1.42.0",
+    "weasyprint>=61.0",
+    "tomli>=2.0.0",
+    "tomli-w>=1.0.0",
+    "pydantic>=2.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.3.0",
+]
+
+[project.scripts]
+job-hunt = "job_hunt.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

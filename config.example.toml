@@ -1,0 +1,49 @@
+# AI智慧求职系统 - 用户配置模板
+# 复制此文件为 config.toml 并填入你的信息
+
+[user]
+name = ""
+phone = ""
+email = ""
+wechat = ""
+
+[preferences]
+# 优先城市（逗号分隔）
+cities = "广西"
+# 意向岗位
+position = ""
+# 意向行业
+industry = ""
+# 最低月薪（元）
+salary_min = 8000
+# 最高月薪（元）
+salary_max = 15000
+# 学历
+education = "硕士"
+
+[ai]
+# LLM API配置（兼容 OpenAI/Claude/通义千问/文心一言/DeepSeek）
+provider = "openai"
+model = "gpt-4o-mini"
+api_key = "your-api-key-here"
+api_base = ""
+
+[platforms]
+# 需要抓取的招聘平台
+boss = true
+zhilian = false
+liepin = false
+job51 = false
+guipin = false
+gxrc = false
+
+[scanner]
+# 扫描相关设置
+max_pages = 5
+scan_interval_hours = 24
+# 搜索关键词（逗号分隔）
+keywords = ""
+
+[output]
+# 简历输出目录
+resume_dir = "output"

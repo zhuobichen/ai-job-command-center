@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Database
+*.db
+data/*.db
+
+# Config (contains API keys)
+config.toml
+
+# Output
+output/*.pdf
+output/*.md
+output/*.html
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
