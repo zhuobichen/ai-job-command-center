@@ -357,7 +357,7 @@ def scan(
             resume_skills=skills,
             max_per_site=max_pages,
             delay=0.8,
-            progress_callback=progress,
+            progress=progress,
         )
 
         total_jobs = 0
