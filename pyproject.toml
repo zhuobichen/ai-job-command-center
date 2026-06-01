@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "job-hunt"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI智慧求职系统 - 纯CLI、本地运行、面向中国招聘市场"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,13 +21,27 @@ dependencies = [
     "tomli>=2.0.0",
     "tomli-w>=1.0.0",
     "pydantic>=2.6.0",
+    "litellm>=1.50.0",
 ]
 
 [project.optional-dependencies]
+browser = [
+    "playwright>=1.45.0",
+]
+pdf = [
+    "weasyprint>=60.0",
+    "PyPDF2>=3.0.0",
+]
+docx = [
+    "python-docx>=1.1.0",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "ruff>=0.3.0",
+]
+full = [
+    "job-hunt[browser,pdf,docx]",
 ]
 
 [project.scripts]

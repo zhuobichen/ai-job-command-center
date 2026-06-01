@@ -1,7 +1,6 @@
 """自动投递模块 - Playwright自动化投递"""
 
 import asyncio
-from typing import Optional
 
 from ..models.job import Job
 from ..utils.display import print_info, print_success, print_warning

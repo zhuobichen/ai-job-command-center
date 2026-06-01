@@ -1,16 +1,13 @@
 """Rich终端美化输出工具"""
 
-from typing import Optional, List
+from typing import List
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
-from rich.markdown import Markdown
-from rich.layout import Layout
-from rich.live import Live
-from rich.text import Text
 from rich import box
 
+from .. import __version__
 from ..models.job import Job
 from ..models.application import Application
 from ..models.resume import Resume
@@ -20,7 +17,7 @@ console = Console()
 
 def print_banner():
     """打印系统横幅"""
-    banner = """
+    banner = f"""
 [bold cyan]
    █████╗ ██╗          ██╗ ██████╗ ██████╗     ██╗  ██╗██╗   ██╗███╗   ██╗████████╗
   ██╔══██╗██║          ██║██╔═══██╗██╔══██╗    ██║  ██║██║   ██║████╗  ██║╚══██╔══╝
@@ -29,7 +26,7 @@ def print_banner():
   ██║  ██║██║          ██║╚██████╔╝██████╔╝    ██║  ██║╚██████╔╝██║ ╚████║   ██║
   ╚═╝  ╚═╝╚═╝          ╚═╝ ╚═════╝ ╚═════╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝
 [/bold cyan]
-[dim cyan]   AI 智慧求职系统 · v0.1.0 · 纯CLI · 本地运行 · 面向中国[/dim cyan]
+[dim cyan]   AI 智慧求职系统 · v{__version__} · 纯CLI · 本地运行 · 面向中国[/dim cyan]
 [dim]   你只管说，AI来做。[/dim]
 """
     console.print(banner)

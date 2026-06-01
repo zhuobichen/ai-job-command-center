@@ -293,21 +293,23 @@ def init():
 
 @app.command()
 def scan(
-    city: Optional[str] = typer.Option(None, "--city", "-c", help="城市搜索（如：广西、北京）"),
+    city: Optional[str] = typer.Option(None, "--city", "-c", help="城市搜索（如：广西、南宁）"),
     keyword: Optional[str] = typer.Option(None, "--keyword", "-k", help="搜索关键词"),
-    platform: str = typer.Option("all", "--platform", "-p", help="招聘平台：all(全搜)/boss/zhilian/liepin/gxrc"),
-    max_pages: int = typer.Option(5, "--pages", "-n", help="每站最大结果数"),
-    headless: bool = typer.Option(False, "--headless/--no-headless", help="（Playwright模式）是否无头"),
+    platform: str = typer.Option("all", "--platform", "-p", help="招聘平台：all/gxrc/job51/boss/bing"),
+    max_pages: int = typer.Option(3, "--pages", "-n", help="每站最大页数"),
+    headless: bool = typer.Option(True, "--headless/--no-headless", help="BOSS直聘模式：是否无头浏览器"),
+    debug: bool = typer.Option(False, "--debug", help="保存原始HTML用于调试选择器"),
 ):
     """
-    🔍 多源扫描 - 聚合10+招聘渠道，搜索引擎+AI结构化
+    🔍 真实岗位扫描 - 直连招聘网站抓取，非LLM编造
 
-    渠道覆盖：广西人才网 | 广西生态环境厅 | BOSS直聘 | 前程无忧 |
-             智联招聘 | 猎聘 | 桂聘网 | 各地市人社局 | 高校就业网
-    
+    渠道覆盖：广西人才网(gxrc) | 前程无忧(51job) | BOSS直聘 | Bing补充
+
     示例:
       job-hunt scan -k "环境信息系统 数据分析" -c 广西
       job-hunt scan -k "环保 环境工程" --platform gxrc
+      job-hunt scan -k "Python" --platform boss --headless
+      job-hunt scan -k "数据分析" -c 南宁 --debug
     """
     check_configured()
     config = get_config()
@@ -322,86 +324,106 @@ def scan(
 
     print_banner()
 
+    from .scrapers.job51 import Job51Scraper
+    from .scrapers.bing import bing_job_search
+
+    all_new_jobs: list = []
+
+    # 确定要运行的抓取器
     if platform == "all":
-        # ─── 多源搜索引擎模式 ───
-        from .search.engine import multi_search
-        from .search.platforms import GUANGXI_SITES
-
-        print_status(f"🌐 多源搜索引擎启动 | 覆盖 {len(GUANGXI_SITES) + 2} 个渠道 | 城市: {city} | 关键词: {keyword}")
-        print()
-
-        # 显示渠道列表
-        from rich.table import Table
-        ch_table = Table(box=None, show_header=False, padding=(0, 1))
-        ch_table.add_column(style="dim")
-        ch_table.add_column(style="cyan")
-        for site in GUANGXI_SITES[:6]:
-            ch_table.add_row(f"[dim]🔹[/dim]", site.name)
-        ch_table.add_row(f"[dim]🔹[/dim]", "广西环科院官网")
-        ch_table.add_row(f"[dim]🔹[/dim]", "广西自然资源厅")
-        console.print(ch_table)
-        print()
-
-        def progress(site: str, status: str, count: int):
-            if status == "done":
-                print_status(f"  ✅ {site}: {count} 条结果")
-            elif status == "empty":
-                print_status(f"  ⚪ {site}: 无结果")
-            elif status == "searching":
-                print_status(f"  🔍 {site}...")
-
-        skills = resume.skills if resume else ""
-        jobs = multi_search(
-            keywords=keyword,
-            city=city,
-            resume_skills=skills,
-            max_per_site=max_pages,
-            delay=0.8,
-            progress=progress,
-        )
-
-        total_jobs = 0
-        for job in jobs:
-            if job.title and job.company:
-                db.save_job(job)
-                total_jobs += 1
-
+        targets = ["gxrc", "job51", "bing"]
     else:
-        # ─── 单平台Playwright模式（保留） ───
-        print_status(f"🔍 单平台扫描 | 平台: {platform} | 城市: {city or '全国'} | 关键词: {keyword}")
+        if platform not in ("gxrc", "job51", "boss", "bing"):
+            print_error(f"未知平台: {platform}，可选: all/gxrc/job51/boss/bing")
+            raise typer.Exit(1)
+        targets = [platform]
 
-        total_jobs = 0
-        jobs = []
+    print_status(f"🔍 真实岗位扫描 | 渠道: {', '.join(targets)} | 城市: {city or '全国'} | 关键词: {keyword}")
+    print()
 
-        if platform == "boss":
-            from .scrapers.boss import BossScraper
-            async def _scan():
-                nonlocal total_jobs
-                scraper = BossScraper(headless=headless)
+    for plat in targets:
+        if plat == "gxrc":
+            # ─── GXRC: Playwright 浏览器模式（SPA网站） ───
+            scraper_name = "广西人才网"
+            print_status(f"  🔍 {scraper_name} (浏览器模式)...")
+            from .scrapers.gxrc import GxrcScraper
+
+            async def _scan_gxrc():
+                scraper = GxrcScraper(headless=headless, debug=debug)
                 try:
-                    jlist = await scraper.search(keyword=keyword, city=city, max_pages=max_pages)
-                    for j in jlist:
-                        db.save_job(j)
-                    return jlist
+                    return await scraper.search(keyword=keyword, city=city, max_pages=max_pages)
                 finally:
                     await scraper.close()
-            jobs = asyncio.run(_scan())
-            total_jobs = len(jobs)
-        else:
-            print_warning(f"平台 {platform} 当前仅多源模式(all)和bos支持，建议使用 --platform all")
+            try:
+                jobs = asyncio.run(_scan_gxrc())
+            except ImportError as e:
+                print_warning(f"  {scraper_name}: {e}")
+                continue
+            except Exception as e:
+                print_warning(f"  {scraper_name}: 抓取出错 - {e}")
+                continue
 
-    # 更新岗位统计
+        elif plat == "job51":
+            scraper_name = "前程无忧"
+            print_status(f"  🔍 {scraper_name}...")
+            try:
+                scraper = Job51Scraper(debug=debug)
+                try:
+                    jobs = scraper.search(keyword=keyword, city=city, max_pages=max_pages)
+                finally:
+                    scraper.close()
+            except Exception as e:
+                print_warning(f"  {scraper_name}: 抓取出错 - {e}")
+                continue
+
+        elif plat == "boss":
+            scraper_name = "BOSS直聘"
+            print_status(f"  🔍 {scraper_name} (浏览器模式)...")
+            from .scrapers.boss import BossScraper
+
+            async def _scan_boss():
+                scraper = BossScraper(headless=headless)
+                try:
+                    return await scraper.search(keyword=keyword, city=city, max_pages=max_pages)
+                finally:
+                    await scraper.close()
+            try:
+                jobs = asyncio.run(_scan_boss())
+            except ImportError as e:
+                print_warning(f"  {scraper_name}: {e}")
+                continue
+            except Exception as e:
+                print_warning(f"  {scraper_name}: 抓取出错 - {e}")
+                continue
+
+        elif plat == "bing":
+            scraper_name = "Bing搜索引擎"
+            print_status(f"  🔍 {scraper_name}...")
+            jobs = bing_job_search(keyword=keyword, city=city, max_results=max_pages * 5)
+
+        # 保存到数据库
+        saved = 0
+        for job in jobs:
+            if job.title:
+                db.save_job(job)
+                saved += 1
+                all_new_jobs.append(job)
+
+        if saved > 0:
+            print_success(f"  ✅ {scraper_name}: {saved} 条岗位")
+        else:
+            print_status(f"  ⚪ {scraper_name}: 无结果（加 --debug 保存HTML调试选择器）")
+
+    # 统计
     all_count = db.get_job_count()
     city_count = db.get_job_count(city=city) if city else all_count
 
     print()
-    print_success(f"✅ 扫描完成 | 本次新增/更新: {total_jobs} 个岗位 | "
+    print_success(f"✅ 扫描完成 | 本次新增: {len(all_new_jobs)} 个岗位 | "
                   f"城市相关: {city_count} 个 | 总岗位库: {all_count} 个")
 
-    if total_jobs > 0:
-        recent = db.get_jobs(limit=15)
-        if recent:
-            display_job_table(recent, title="📋 最新岗位")
+    if all_new_jobs:
+        display_job_table(all_new_jobs[:20], title="📋 本次新增岗位")
 
     print_info("下一步: [bold]job-hunt match[/bold] 开始智能匹配")
 

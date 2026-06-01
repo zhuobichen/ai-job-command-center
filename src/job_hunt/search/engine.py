@@ -194,20 +194,12 @@ def multi_search(
         if i < len(all_queries) - 1:
             time.sleep(delay)
     
-    # LLM 解析
+    # LLM 解析（仅从真实搜索结果中提取）
     parsed = _llm_parse("\n---\n".join(all_text)[:12000], resume_skills) if all_text else []
-    
-    # 降级
-    if not parsed or len(parsed) < 3:
-        if progress:
-            progress("LLM知识库", "searching", 0)
-        llm_jobs = _llm_discover(keywords, city, resume_skills)
-        for item in llm_jobs:
-            item["platform"] = "LLM推荐-" + item.get("platform", "")
-            item["source_url"] = ""
-        if progress:
-            progress("LLM知识库", "done", len(llm_jobs))
-        parsed += llm_jobs
+
+    # ⚠️ 不再使用 LLM 编造岗位 — 无真实链接的合成数据不可靠
+    if not parsed:
+        print("  ⚠️ 搜索引擎未返回可解析的岗位信息，请尝试 --platform gxrc 直连招聘网站")
     
     # 构建 Job
     jobs = []

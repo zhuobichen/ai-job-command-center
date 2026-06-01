@@ -245,6 +245,13 @@ class Database:
                 (eval_score, eval_detail, job_id),
             )
 
+    def delete_jobs(self, job_ids: list[int]) -> int:
+        """批量删除岗位"""
+        with self._connect() as conn:
+            placeholders = ",".join("?" for _ in job_ids)
+            cur = conn.execute(f"DELETE FROM jobs WHERE id IN ({placeholders})", job_ids)
+            return cur.rowcount
+
     # ─── Applications ─────────────────────────────────────
 
     def save_application(self, app: Application) -> int:

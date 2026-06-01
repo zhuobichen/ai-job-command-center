@@ -1,8 +1,8 @@
 """投递记录模型"""
 
 from dataclasses import dataclass, field
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 
 @dataclass
@@ -54,3 +54,20 @@ class Application:
             "offer": 5,
         }
         return order.get(self.status, 10)
+
+    def to_dict(self) -> dict:
+        return {
+            "job_id": self.job_id,
+            "job_title": self.job_title,
+            "company": self.company,
+            "platform": self.platform,
+            "status": self.status,
+            "applied_at": self.applied_at,
+            "replied_at": self.replied_at,
+            "interview_at": self.interview_at,
+            "greeting": self.greeting,
+            "resume_path": self.resume_path,
+            "notes": self.notes,
+            "interview_type": self.interview_type,
+            "interview_notes": self.interview_notes,
+        }
