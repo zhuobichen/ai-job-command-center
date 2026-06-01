@@ -29,26 +29,34 @@ GUANGXI_SITES: List[SearchSite] = [
         name="广西人才网",
         site_domain="gxrc.com",
         priority=1,
-        weight=0.20,
+        weight=0.18,
         category="地方平台",
         search_url_template="https://www.gxrc.com/job/search?keyword={keyword}",
         notes="广西最大官方招聘平台，事业单位/国企主渠道",
     ),
     SearchSite(
+        name="广西人社厅",
+        site_domain="rst.gxzf.gov.cn",
+        priority=1,
+        weight=0.10,
+        category="事业单位",
+        notes="广西人社厅官方招聘公告（含事业单位统考）",
+    ),
+    SearchSite(
         name="广西生态环境厅",
         site_domain="sthjt.gxzf.gov.cn",
         priority=1,
-        weight=0.12,
+        weight=0.10,
         category="事业单位",
         notes="直属事业单位招聘公告发布处（环科院/监测中心等）",
     ),
     SearchSite(
-        name="广西人才市场",
-        site_domain="gxrcda.com",
+        name="南宁人才网",
+        site_domain="nnrc.com.cn",
         priority=1,
         weight=0.08,
         category="地方平台",
-        notes="广西人才市场官方网站",
+        notes="南宁市官方人才网站",
     ),
     
     # 🟡 第二优先级：全国招聘 + 广西定位
@@ -56,7 +64,7 @@ GUANGXI_SITES: List[SearchSite] = [
         name="BOSS直聘",
         site_domain="zhipin.com",
         priority=2,
-        weight=0.15,
+        weight=0.12,
         category="综合招聘",
         notes="岗位量最大，但反爬严格，用搜索引擎间接抓",
     ),
@@ -64,7 +72,7 @@ GUANGXI_SITES: List[SearchSite] = [
         name="前程无忧",
         site_domain="51job.com",
         priority=2,
-        weight=0.12,
+        weight=0.10,
         category="综合招聘",
         notes="传统招聘巨头，国企岗位较多",
     ),
@@ -77,36 +85,52 @@ GUANGXI_SITES: List[SearchSite] = [
         notes="覆盖面广，适合环保类岗位",
     ),
     
-    # 🟢 第三优先级：补充渠道
+    # 🟢 第三优先级：垂直行业 + 补充渠道
     SearchSite(
         name="猎聘",
         site_domain="liepin.com",
         priority=3,
-        weight=0.08,
+        weight=0.06,
         category="综合招聘",
         notes="中高端岗位",
+    ),
+    SearchSite(
+        name="拉勾网",
+        site_domain="lagou.com",
+        priority=3,
+        weight=0.04,
+        category="综合招聘",
+        notes="互联网技术岗位为主",
     ),
     SearchSite(
         name="桂聘网",
         site_domain="guipin.com",
         priority=3,
-        weight=0.05,
+        weight=0.04,
         category="地方平台",
         notes="广西本地招聘平台",
     ),
     SearchSite(
-        name="广西各地市人社局",
-        site_domain="gov.cn",
+        name="国聘网",
+        site_domain="guopin.com",
         priority=3,
-        weight=0.05,
+        weight=0.03,
         category="事业单位",
-        notes="各地市人力资源和社会保障局招聘公告",
+        notes="国企/事业单位专属招聘平台",
+    ),
+    SearchSite(
+        name="广西公共资源交易中心",
+        site_domain="ggzy.gxzf.gov.cn",
+        priority=3,
+        weight=0.03,
+        category="事业单位",
+        notes="政府采购与事业单位招聘公告",
     ),
     SearchSite(
         name="高校就业网",
         site_domain="edu.cn",
         priority=3,
-        weight=0.05,
+        weight=0.02,
         category="事业单位",
         notes="广西各高校就业信息网（校招渠道）",
     ),
@@ -148,7 +172,7 @@ def generate_search_queries(
     sites: List[SearchSite] = None,
     max_per_site: int = 5,
 ) -> List[dict]:
-    """生成多平台搜索查询列表
+    """生成多平台搜索查询列表（增强版：关键词变体 + 多查询模式）
     
     Returns:
         List[dict]: 每个元素包含 site_name, query, site_domain, priority
@@ -157,20 +181,50 @@ def generate_search_queries(
         sites = GUANGXI_SITES
     
     queries = []
-    for site in sites:
-        # 组合查询：关键词 + 城市 + 招聘 + site限定
-        query = f'{keywords} {city} 招聘 site:{site.site_domain}'
-        queries.append({
-            "site_name": site.name,
-            "query": query,
-            "site_domain": site.site_domain,
-            "priority": site.priority,
-            "category": site.category,
-            "weight": site.weight,
-            "max_results": max_per_site if site.priority <= 2 else 3,
-        })
     
-    return sorted(queries, key=lambda q: q["priority"])
+    keyword_variants = _generate_keyword_variants(keywords)
+    
+    for site in sites:
+        for variant in keyword_variants:
+            query = f'{variant} {city} 招聘 site:{site.site_domain}'
+            queries.append({
+                "site_name": site.name,
+                "query": query,
+                "site_domain": site.site_domain,
+                "priority": site.priority,
+                "category": site.category,
+                "weight": site.weight,
+                "max_results": max_per_site if site.priority <= 2 else 3,
+            })
+    
+    return sorted(queries, key=lambda q: (q["priority"], q["weight"]), reverse=True)
+
+
+def _generate_keyword_variants(keywords: str) -> List[str]:
+    """生成关键词变体，提高搜索覆盖率
+    
+    示例:
+        输入: "环境信息系统 数据分析"
+        输出: ["环境信息系统 数据分析", "环境信息化", "环保信息化", "GIS 开发"]
+    """
+    variants = [keywords]
+    
+    keyword_map = {
+        "环境信息系统": ["环境信息化", "环保信息化", "环境数据", "生态环境信息化"],
+        "数据分析": ["数据分析师", "数据挖掘", "BI", "商业智能"],
+        "GIS": ["地理信息系统", "空间分析", "遥感", "测绘"],
+        "开发": ["工程师", "研发", "技术", "编程"],
+        "工程师": ["开发", "技术", "研发"],
+        "环保": ["环境保护", "生态环境", "环境工程"],
+        "信息化": ["信息系统", "数字化", "智能化"],
+    }
+    
+    parts = keywords.split()
+    for part in parts:
+        if part in keyword_map:
+            variants.extend(keyword_map[part])
+    
+    return list(set(variants))
 
 
 def generate_direct_queries(

@@ -1,12 +1,18 @@
-"""搜索引擎 - 双模架构
+"""搜索引擎 - 双模架构（增强版）
 
-模式1 (Standalone): httpx 直连 Bing 搜索，BeautifulSoup 解析
+模式1 (Standalone): httpx 直连 Bing/百度搜索，BeautifulSoup 解析
 模式2 (Agent): 外部 Agent 通过 WebSearch 工具搜索，结果写入 JSON 文件导入
 
 设计原则：
 - 不做 JS 渲染抓取（招聘网站几乎都是 SPA）
 - 不做 API 鉴权破解（容易被封）
 - 搜索引擎 + LLM 解析 = 最稳定方案
+
+增强特性：
+- 多引擎备份（Bing → 百度 → DuckDuckGo）
+- 智能去重机制
+- 多关键词变体扩展
+- 自动重试和限流
 """
 
 import json
@@ -14,18 +20,22 @@ import time
 import os
 import re
 from typing import List, Optional, Callable
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from ..models.job import Job
 from .platforms import generate_search_queries, generate_direct_queries, get_verify_queries
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml",
-    "Accept-Language": "zh-CN,zh;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive",
 }
 
-# ─── 底层搜索 ────────────────────────────────────────────
+# 去重集合（全局）
+_global_seen_urls = set()
+
 
 def _bing_html(query: str, max_results: int = 10) -> List[dict]:
     """Bing HTML 搜索（httpx + bs4）"""
@@ -52,9 +62,10 @@ def _bing_html(query: str, max_results: int = 10) -> List[dict]:
         snippet_el = item.select_one(".b_caption p") or item.select_one(".b_lineclamp2")
         snippet = snippet_el.get_text(strip=True) if snippet_el else ""
 
-        if any(d in href for d in skip_domains):
+        if any(d in href.lower() for d in skip_domains):
             continue
-        if title and href:
+        if title and href and href not in _global_seen_urls:
+            _global_seen_urls.add(href)
             results.append({"title": title, "url": href, "snippet": snippet})
         if len(results) >= max_results:
             break
@@ -73,31 +84,112 @@ def _baidu_html(query: str, max_results: int = 10) -> List[dict]:
     except Exception:
         return []
 
-    if "captcha" in r.url or "wappass" in r.url:
-        return []  # 验证码
+    if "captcha" in r.url.lower() or "wappass" in r.url.lower():
+        return []
 
     soup = BeautifulSoup(r.text, "lxml")
     results = []
-    for item in soup.select(".result, .c-container"):
+    for item in soup.select(".result, .c-container, .result-op"):
         title_el = item.select_one("h3 a")
         if not title_el:
             continue
+        title = title_el.get_text(strip=True)
+        href = title_el.get("href", "")
+        
+        if not href or href in _global_seen_urls:
+            continue
+        _global_seen_urls.add(href)
+        
         results.append({
-            "title": title_el.get_text(strip=True),
-            "url": title_el.get("href", ""),
-            "snippet": (item.select_one(".c-abstract") or title_el).get_text(strip=True),
+            "title": title,
+            "url": href,
+            "snippet": (item.select_one(".c-abstract") or item.select_one(".content-right_8Zs40") or title_el).get_text(strip=True),
         })
         if len(results) >= max_results:
             break
     return results
 
 
-def search_web(query: str, max_results: int = 10) -> List[dict]:
-    """统一搜索入口：Bing → 百度"""
-    r = _bing_html(query, max_results)
-    if not r:
-        r = _baidu_html(query, max_results)
-    return r
+def _duckduckgo_html(query: str, max_results: int = 10) -> List[dict]:
+    """DuckDuckGo 搜索（备选）"""
+    import httpx
+    from bs4 import BeautifulSoup
+
+    url = f"https://html.duckduckgo.com/html/?q={quote(query)}"
+    try:
+        r = httpx.get(url, headers=HEADERS, timeout=20, follow_redirects=True)
+        r.raise_for_status()
+    except Exception:
+        return []
+
+    soup = BeautifulSoup(r.text, "lxml")
+    results = []
+    for item in soup.select("div.result"):
+        title_el = item.select_one("a.result__a")
+        if not title_el:
+            continue
+        title = title_el.get_text(strip=True)
+        href = title_el.get("href", "")
+        
+        if not href or href in _global_seen_urls:
+            continue
+        _global_seen_urls.add(href)
+        
+        snippet = item.select_one("a.result__snippet")
+        results.append({
+            "title": title,
+            "url": href,
+            "snippet": snippet.get_text(strip=True) if snippet else "",
+        })
+        if len(results) >= max_results:
+            break
+    return results
+
+
+def search_web(query: str, max_results: int = 10, retry: int = 2) -> List[dict]:
+    """统一搜索入口：Bing → 百度 → DuckDuckGo"""
+    engines = [_bing_html, _baidu_html, _duckduckgo_html]
+    
+    for attempt in range(retry + 1):
+        for engine in engines:
+            try:
+                results = engine(query, max_results)
+                if results:
+                    return results
+            except Exception:
+                continue
+        if attempt < retry:
+            time.sleep(1.5)
+    
+    return []
+
+
+def _extract_job_info_from_search(title: str, snippet: str) -> dict:
+    """从搜索结果中提取岗位信息"""
+    info = {"title": title, "company": "", "salary": "", "city": ""}
+    
+    company_patterns = [
+        r"([\u4e00-\u9fa5]{2,20})招聘",
+        r"【([\u4e00-\u9fa5]{2,20})】",
+        r"(\w+集团|\w+公司|\w+科技|\w+信息)招聘",
+    ]
+    for pattern in company_patterns:
+        match = re.search(pattern, title)
+        if match:
+            info["company"] = match.group(1)
+            break
+    
+    salary_patterns = [
+        r"(\d+[Kk千][-_~]?\d*[Kk千]?)",
+        r"薪资(\d+-\d+)K",
+    ]
+    for pattern in salary_patterns:
+        match = re.search(pattern, snippet)
+        if match:
+            info["salary"] = match.group(1)
+            break
+    
+    return info
 
 
 # ─── LLM 解析 ────────────────────────────────────────────

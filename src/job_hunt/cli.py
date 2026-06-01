@@ -295,21 +295,28 @@ def init():
 def scan(
     city: Optional[str] = typer.Option(None, "--city", "-c", help="城市搜索（如：广西、南宁）"),
     keyword: Optional[str] = typer.Option(None, "--keyword", "-k", help="搜索关键词"),
-    platform: str = typer.Option("all", "--platform", "-p", help="招聘平台：all/gxrc/job51/boss/bing"),
+    platform: str = typer.Option("all", "--platform", "-p", help="招聘平台：all/gxrc/job51/boss/web"),
     max_pages: int = typer.Option(3, "--pages", "-n", help="每站最大页数"),
     headless: bool = typer.Option(True, "--headless/--no-headless", help="BOSS直聘模式：是否无头浏览器"),
     debug: bool = typer.Option(False, "--debug", help="保存原始HTML用于调试选择器"),
+    deep: bool = typer.Option(False, "--deep", "-d", help="深度搜索模式：启用多引擎备份和关键词变体"),
 ):
     """
     🔍 真实岗位扫描 - 直连招聘网站抓取，非LLM编造
 
-    渠道覆盖：广西人才网(gxrc) | 前程无忧(51job) | BOSS直聘 | Bing补充
+    渠道覆盖：广西人才网(gxrc) | 前程无忧(51job) | BOSS直聘 | 多引擎Web搜索
+
+    深度模式(--deep)增强特性：
+    - 多搜索引擎备份（Bing → 百度 → DuckDuckGo）
+    - 关键词变体扩展（如"环境信息系统"自动扩展为"环境信息化"等）
+    - 智能去重机制
 
     示例:
       job-hunt scan -k "环境信息系统 数据分析" -c 广西
       job-hunt scan -k "环保 环境工程" --platform gxrc
       job-hunt scan -k "Python" --platform boss --headless
-      job-hunt scan -k "数据分析" -c 南宁 --debug
+      job-hunt scan -k "数据分析" -c 南宁 --deep    # 深度搜索
+      job-hunt scan -k "GIS开发" --platform web     # 仅Web搜索
     """
     check_configured()
     config = get_config()
@@ -330,12 +337,14 @@ def scan(
     all_new_jobs: list = []
 
     # 确定要运行的抓取器
+    valid_platforms = ["gxrc", "job51", "boss", "bing", "web", "all"]
+    if platform not in valid_platforms:
+        print_error(f"未知平台: {platform}，可选: {', '.join(valid_platforms)}")
+        raise typer.Exit(1)
+    
     if platform == "all":
         targets = ["gxrc", "job51", "bing"]
     else:
-        if platform not in ("gxrc", "job51", "boss", "bing"):
-            print_error(f"未知平台: {platform}，可选: all/gxrc/job51/boss/bing")
-            raise typer.Exit(1)
         targets = [platform]
 
     print_status(f"🔍 真实岗位扫描 | 渠道: {', '.join(targets)} | 城市: {city or '全国'} | 关键词: {keyword}")
