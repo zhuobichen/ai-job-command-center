@@ -285,4 +285,4 @@ def _api_key() -> str:
     if key:
         return key
     # 回退（仅开发用）
-    return "sk-df3d2f4931f64282bd3551d0d38e33c3"
+    return ""

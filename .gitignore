@@ -21,6 +21,9 @@ data/*.db
 
 # Config (contains API keys)
 config.toml
+.env
+.env.*
+!.env.example
 
 # Output
 output/*.pdf

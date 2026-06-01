@@ -274,4 +274,4 @@ def _get_api_key() -> str:
     except Exception:
         import os
         # 尝试从环境变量获取
-        return os.environ.get("DEEPSEEK_API_KEY", "sk-df3d2f4931f64282bd3551d0d38e33c3")
+        return os.environ.get("DEEPSEEK_API_KEY", "")
