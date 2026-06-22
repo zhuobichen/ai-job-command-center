@@ -288,6 +288,8 @@ def _run_scraper(plat: str, keyword: str, city: str, pages: int, debug: bool, ou
         from .scrapers.bing import bing_job_search
         try: return bing_job_search(keyword=keyword, city=city, max_results=pages*5)
         except Exception as e: out.warn(f"bing: {e}"); return []
+    elif plat == "univ":
+        return _scrape_university_sites(keyword, city, pages, out)
     return []
 
 # ═══════════════════════════════════════════════════════════
@@ -388,7 +390,7 @@ def eval(
 def auto(
     keyword: Optional[str] = typer.Option(None, "--keyword", "-k", help="搜索关键词（逗号分隔多个）"),
     city: Optional[str] = typer.Option(None, "--city", "-c", help="城市筛选（逗号分隔）"),
-    platform: str = typer.Option("gxrc,51job", "--platform", "-p", help="平台: gxrc/51job/all"),
+    platform: str = typer.Option("gxrc,51job,univ", "--platform", "-p", help="平台: gxrc/51job/univ/all"),
     max_pages: int = typer.Option(2, "--pages", "-n", help="每平台最大页数"),
     json_mode: bool = typer.Option(False, "--json", "-j", help="JSON输出(AI模式)"),
     yes: bool = typer.Option(False, "--yes", "-y", help="非交互模式"),
@@ -809,6 +811,162 @@ def parse(
 # ═══════════════════════════════════════════════════════════
 # 工具函数
 # ═══════════════════════════════════════════════════════════
+
+def _scrape_university_sites(keyword: str, city: str, pages: int, out: Output) -> list:
+    """抓取所有大学环境学院就业网（browser open + scroll 触发渲染）"""
+    from .models.job import Job
+    import re, subprocess as sp, time as _t
+    jobs: list = []
+
+    sources = [
+        ("gxu", "广西大学·资环材", "https://gxulif.gxu.edu.cn/CN/rcpy/jyxx.htm", "gxu"),
+        ("glut", "桂林理工·环境", "https://hjxy.glut.edu.cn/xwzx1/fqtg.htm", "glut"),
+    ]
+
+    for tag, name, url, ptype in sources:
+        sid = f"u_{tag}"
+        try:
+            out.info(f"  [univ] {name}...")
+            # 关闭旧 session，打开新页面（browser open 触发完整初始渲染）
+            sp.run(["browser-act", "session", "close", sid],
+                   capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=5)
+            r = sp.run(["browser-act", "--session", sid, "browser", "open",
+                        "chrome_local_101959002016973032", url],
+                       capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30)
+            if r.returncode != 0:
+                out.warn(f"  [{tag}] open fail: {r.stderr[:50]}"); continue
+            _t.sleep(2)
+
+            # 滚动触发懒加载内容
+            sp.run(["browser-act", "--session", sid, "scroll", "down", "--amount", "3000"],
+                   capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=10)
+            _t.sleep(1)
+
+            lines = _fetch_univ_text(sid) or []
+            if not lines:
+                out.info(f"  [{tag}] 0 rows"); continue
+
+            entries = _parse_univ(ptype, lines, tag)
+            for e in entries:
+                j = _make_univ_job(tag, e["title"], e.get("company",""), e.get("date",""), e.get("desc",""), keyword)
+                if j: jobs.append(j)
+
+            rel = sum(1 for j in jobs if j.platform == "univ")
+            out.info(f"  [{tag}] {len(entries)} entries → {rel} relevant")
+        except sp.TimeoutExpired:
+            out.warn(f"  [{tag}] timeout")
+        except Exception as e:
+            out.warn(f"  [{tag}]: {str(e)[:60]}")
+
+    return jobs
+
+
+def _fetch_univ_text(session: str) -> list:
+    """从当前浏览器页面提取所有招聘相关行"""
+    import subprocess as sp
+    # 先取全文，再在 Python 侧过滤——比 JS 过滤更可靠
+    js = "document.body.innerText.slice(0,10000)"
+    r = sp.run(["browser-act", "--session", session, "eval", js],
+               capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=15)
+    if r.returncode != 0 or not r.stdout:
+        return None
+    lines = r.stdout.split("\n")
+    return [l.strip() for l in lines if len(l.strip()) > 3]
+
+
+def _parse_univ(ptype: str, lines: list, tag: str) -> list:
+    """根据页面类型解析招聘条目"""
+    import re
+    entries = []
+    if ptype == "gxu":
+        # 格式: 标题行 → 日期(2026-xx-xx) → 招聘单位：...行
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            m = re.match(r"(\d{4}-\d{2}-\d{2})", line)
+            if m:
+                title = lines[i-1] if i > 0 else ""
+                date_str = m.group(1)
+                company = desc = ""
+                if i+1 < len(lines) and "招聘单位" in lines[i+1]:
+                    company = lines[i+1].split("招聘单位：")[-1].split("所在学校")[0].split("单位简介")[0].strip()[:40]
+                    desc = lines[i+1][:300]
+                if title and not re.match(r"\d{4}-\d{2}-\d{2}", title):
+                    entries.append({"title": title[:80], "company": company, "date": date_str, "desc": desc})
+                i += 2
+            else:
+                i += 1
+            if len(entries) >= 12:
+                break
+
+    elif ptype == "glut":
+        # 格式: "学院举办XXX专场招聘会" 或 "YYY公司到我院开展访企拓岗"
+        for i, line in enumerate(lines):
+            m = re.search(r"举办\s*(\S{2,30}?(?:有限|集团|科技|股份|设计院|研究院|公司|中心))\s*专场", line)
+            if m:
+                company = m.group(1)
+                title = f"{company}专场招聘会"
+            elif "访企拓岗" in line or "专场招聘" in line or "双选会" in line:
+                title = line[:80]
+                company = re.search(r'(\S{2,30}?(?:公司|集团|研究院|设计院|中心))', line)
+                company = company.group(1) if company else ""
+            else:
+                continue
+            desc = lines[i+1][:200] if i+1 < len(lines) else ""
+            date_match = re.search(r"(\d{4}[-/]\d{2})", line)
+            entries.append({
+                "title": title[:80],
+                "company": company or "",
+                "date": date_match.group(1) if date_match else "",
+                "desc": desc,
+            })
+            if len(entries) >= 10:
+                break
+
+    elif ptype == "list":
+        # 通用列表：标题行是招聘条目
+        for line in lines:
+            if any(k in line for k in ["就业信息","招生就业","当前位置","首页"]):
+                continue
+            date_match = re.search(r"(\d{4}/\d{2}/\d{2})", line)
+            entries.append({
+                "title": line[:80],
+                "company": "",
+                "date": date_match.group(1) if date_match else "",
+                "desc": line,
+            })
+            if len(entries) >= 10:
+                break
+
+    return entries
+
+
+def _make_univ_job(tag: str, title: str, company: str, date: str, desc: str, keyword: str):
+    """构造大学就业渠道的 Job 对象，含相关性过滤"""
+    from .models.job import Job
+
+    if keyword:
+        kws = [k.strip().lower() for k in keyword.replace("，",",").split(",")]
+    else:
+        kws = ["环境","环保","数据","开发","python","ai","信息","监测","水务","大气","化学","能源"]
+    text = f"{title} {company} {desc}".lower()
+    if not any(k in text for k in kws):
+        return None
+
+    city = ""
+    for c in ["南宁","广州","深圳","桂林","柳州","佛山","东莞","北海","钦州"]:
+        if c in title or c in company or c in desc:
+            city = c; break
+
+    return Job(
+        title=f"[{tag}] {title[:60]}",
+        company=company or f"{tag}大学就业网",
+        platform="univ",
+        source_url="",
+        description=desc[:300],
+        city=city,
+        scraped_at=date,
+    )
 
 def _job_dict(job) -> dict:
     return {
