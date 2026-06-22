@@ -41,10 +41,10 @@ from .utils.config import Config
 from .utils.output import Output
 
 # ─── 全局状态 ───────────────────────────────────────────
-_db: Optional[Database] = None
-_config: Optional[Config] = None
-_brain: Optional = None
-_out: Optional[Output] = None
+_gdb: Optional[Database] = None
+_gcfg: Optional[Config] = None
+_gbrain: Optional = None
+_gout: Optional[Output] = None
 _json_mode: bool = False
 _yes_mode: bool = False
 
@@ -52,42 +52,42 @@ app = typer.Typer(name="job-hunt", help="AI Job Hunt - CLI-first, AI-ready", no_
 
 
 def _setup(json_mode: bool = False, yes_mode: bool = False) -> Output:
-    global _out, _json_mode, _yes_mode
+    global _gout, _json_mode, _yes_mode
     _json_mode = json_mode
     _yes_mode = yes_mode
-    _out = Output(json_mode=json_mode)
-    return _out
+    _gout = Output(json_mode=json_mode)
+    return _gout
 
 
 def _json() -> bool: return _json_mode
 def _yes() -> bool: return _yes_mode
-def _out() -> Output: return _out
+def _out() -> Output: return _gout
 
 
 def _db() -> Database:
-    global _db
-    if _db is None:
-        _db = Database()
-    return _db
+    global _gdb
+    if _gdb is None:
+        _gdb = Database()
+    return _gdb
 
 
 def _cfg() -> Config:
-    global _config
-    if _config is None:
-        _config = Config()
-    return _config
+    global _gcfg
+    if _gcfg is None:
+        _gcfg = Config()
+    return _gcfg
 
 
 def _brain():
-    global _brain
-    if _brain is None:
+    global _gbrain
+    if _gbrain is None:
         try:
             from .ai.brain import AIBrain
-            _brain = AIBrain(_cfg())
+            _gbrain = AIBrain(_cfg())
         except ImportError as e:
             _out().error(f"AI模块不可用: {e}")
             raise typer.Exit(1)
-    return _brain
+    return _gbrain
 
 
 def _check_ai() -> None:
@@ -130,13 +130,27 @@ def init(
     # Step 1: AI Key
     if not yes:
         from rich.prompt import Prompt
+        import os as _os
+
+        # 自动检测环境变量 DEEPSEEK_API_KEY
+        env_key = _os.environ.get("DEEPSEEK_API_KEY", "")
+        has_env_key = bool(env_key)
+        if has_env_key:
+            out.info(f"检测到环境变量 DEEPSEEK_API_KEY (****{env_key[-4:]})，将自动使用")
+
         provider = Prompt.ask("AI提供商", choices=["deepseek","openai","qwen","custom"], default="deepseek")
         cfg.set("ai", "provider", provider)
         model = Prompt.ask("模型", default="deepseek-chat")
         cfg.set("ai", "model", model)
-        api_key = Prompt.ask("API Key", password=True, default=cfg.get("ai","api_key",""))
-        cfg.set("ai", "api_key", api_key)
-        out.success("AI配置完成")
+
+        # 有环境变量时不需要手动输入 key
+        if has_env_key:
+            out.info("API Key 将使用环境变量 DEEPSEEK_API_KEY，无需输入")
+        else:
+            api_key = Prompt.ask("API Key（或设置环境变量 DEEPSEEK_API_KEY）", password=True, default="")
+            if api_key:
+                cfg.set("ai", "api_key", api_key)
+        out.success("AI 配置完成")
 
         # Step 2: 简历
         resume_path = Prompt.ask("简历路径(PDF/DOCX/TXT，可跳过)", default="")
@@ -367,80 +381,170 @@ def eval(
     out.result({"job_id": job_id, "eval": result, "next": "job-hunt resume {} --json".format(job_id)})
 
 # ═══════════════════════════════════════════════════════════
-# Auto — 全自动流水线
+# Auto — 全自动闭环流水线
 # ═══════════════════════════════════════════════════════════
 
 @app.command()
 def auto(
-    keyword: Optional[str] = typer.Option(None, "--keyword", "-k", help="搜索关键词"),
-    city: Optional[str] = typer.Option(None, "--city", "-c", help="城市"),
-    platform: str = typer.Option("gxrc", "--platform", "-p"),
-    max_pages: int = typer.Option(2, "--pages", "-n"),
-    json_mode: bool = typer.Option(False, "--json", "-j"),
-    yes: bool = typer.Option(False, "--yes", "-y"),
-    min_score: float = typer.Option(50, "--min-score", "-m", help="最低匹配度"),
+    keyword: Optional[str] = typer.Option(None, "--keyword", "-k", help="搜索关键词（逗号分隔多个）"),
+    city: Optional[str] = typer.Option(None, "--city", "-c", help="城市筛选（逗号分隔）"),
+    platform: str = typer.Option("gxrc,51job", "--platform", "-p", help="平台: gxrc/51job/all"),
+    max_pages: int = typer.Option(2, "--pages", "-n", help="每平台最大页数"),
+    json_mode: bool = typer.Option(False, "--json", "-j", help="JSON输出(AI模式)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="非交互模式"),
+    min_score: float = typer.Option(30, "--min-score", "-m", help="最低匹配度(%)"),
+    ai_mode: bool = typer.Option(False, "--ai", help="启用AI评估(需配置API key)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="干跑模式：仅扫描不评估"),
 ):
-    """⚡ 全自动流水线: scan → match → eval → report"""
+    """⚡ 全自动闭环: scan → match → eval → report
+
+    支持 AI 和 关键词双引擎。AI 不可用时自动降级为关键词匹配。
+    示例:
+      job-hunt auto -k "Python 开发,数据分析" -c 南宁              # 关键词匹配模式
+      job-hunt auto -k "环保,环境" -c 南宁,广州 --ai               # AI评估模式
+      job-hunt auto -k "Python 开发" --json --yes                   # 全自动JSON输出
+      job-hunt auto -k "大气环境" --dry-run                         # 仅扫描不评估
+    """
     out = _setup(json_mode, yes)
-    _check_ai(); cfg = _cfg(); db = _db(); brain = _brain()
+    cfg = _cfg(); db = _db()
 
     city = city or cfg.cities or ""
     keyword = keyword or cfg.keywords
-    if not keyword: out.error("请指定 --keyword"); raise typer.Exit(1)
+    if not keyword:
+        out.error("请指定 --keyword。示例: job-hunt auto -k \"Python 开发,数据分析\" -c 南宁")
+        raise typer.Exit(1)
 
-    out.status(f"[1/4] 扫描: {keyword} | {city}")
+    # 判断哪些关键词要搜索
+    keywords = [k.strip() for k in keyword.replace("，", ",").split(",") if k.strip()]
+    cities = [c.strip() for c in city.replace("，", ",").split(",") if c.strip()]
+    platforms = [p.strip() for p in platform.split(",")]
+
+    # ─── 检测AI是否可用 ───
+    brain = None
+    if ai_mode:
+        try:
+            _check_ai()
+            from .ai.brain import AIBrain
+            brain = AIBrain(cfg)
+            out.info("AI引擎已就绪")
+        except Exception as e:
+            out.warn(f"AI不可用({e})，降级为关键词匹配")
+    else:
+        out.info("使用关键词匹配引擎（加 --ai 启用AI评估）")
+
+    from .ai.matcher import KeywordMatcher
+    matcher = KeywordMatcher()
+    resume_d = db.get_resume().to_dict() if db.get_resume() else {}
+    if resume_d:
+        matcher.skills = [s.strip().lower() for s in (resume_d.get("skills","") or "").split(",") if s.strip()] or matcher.skills
+
+    # ═══════════════════════════════════════════════════
+    # Step 1: SCAN
+    # ═══════════════════════════════════════════════════
+    out.status(f"[1/4] 扫描 | 关键词={keywords} | 城市={cities} | 平台={platforms}")
     all_jobs = []
-    for plat in (platform.split(",") if platform != "all" else ["gxrc","guipin","boss"]):
-        jobs = _run_scraper(plat.strip(), keyword, city, max_pages, False, out)
-        for j in jobs:
-            if j.title and not _is_dup(db, j):
-                db.save_job(j); all_jobs.append(j)
-    out.success(f"扫描完成: {len(all_jobs)} 新岗位")
+    scan_errors = []
+    for kw in keywords:
+        for plat in platforms:
+            try:
+                jobs = _run_scraper(plat.strip(), kw, city if city else "", max_pages, False, out)
+                saved = 0
+                for j in jobs:
+                    if j.title and len(j.title) >= 2 and not _is_dup(db, j):
+                        db.save_job(j)
+                        saved += 1
+                        all_jobs.append(j)
+                if saved:
+                    out.info(f"  [{plat}] '{kw}' → {saved}条")
+            except Exception as e:
+                scan_errors.append(f"{plat}/{kw}: {e}")
+                out.warn(f"  [{plat}] '{kw}' 失败: {e}")
+    out.success(f"[1/4] 扫描完成: {len(all_jobs)} 新岗位 ({len(scan_errors)} 个平台异常)")
 
     if not all_jobs:
-        out.result({"status": "no_new_jobs", "keyword": keyword, "city": city})
+        # 回退：使用数据库中已有的未评估岗位
+        out.info("无新岗位，从数据库中选取已有岗位继续...")
+        db_jobs = db.get_jobs(limit=50, city=(city if city else None), active_only=True)
+        unrated = [j for j in db_jobs if not getattr(j, 'eval_score', None)]
+        all_jobs = unrated if unrated else db_jobs[:30]
+        out.info(f"从数据库选取 {len(all_jobs)} 个岗位")
+
+    if dry_run:
+        out.result({"status": "dry_run_done", "scanned": len(all_jobs),
+                     "jobs": [_job_dict(j) for j in all_jobs[:30]]})
         return
 
-    # match
-    out.status(f"[2/4] AI匹配 {len(all_jobs)} 个...")
-    resume_d = db.get_resume().to_dict() if db.get_resume() else {}
+    # ═══════════════════════════════════════════════════
+    # Step 2: MATCH
+    # ═══════════════════════════════════════════════════
+    out.status(f"[2/4] 匹配 {len(all_jobs)} 个岗位...")
     matched = []
     for job in all_jobs:
         try:
-            r = brain.match_job(resume_d, job.to_dict())
+            jd = job.to_dict()
+            # AI优先，关键词后备
+            if brain:
+                r = brain.match_job(resume_d, jd)
+            else:
+                r = matcher.match(jd)
             score = r.get("match_score", 0)
             db.update_job_match(job.id or 0, score, json.dumps(r, ensure_ascii=False))
             job.match_score = score
-            if score >= min_score: matched.append(job)
-        except Exception: pass
+            if score >= min_score:
+                matched.append(job)
+        except Exception:
+            continue
     matched.sort(key=lambda j: j.match_score, reverse=True)
-    out.success(f"匹配完成: {len(matched)} 个 >= {min_score}%")
+    count_msg = f"{len(matched)}个>={min_score}%" if matched else f"0个满足门槛，放宽至TOP{min(15,len(all_jobs))}"
+    if not matched and all_jobs:
+        # 放宽门槛：至少给 TOP 15
+        all_jobs.sort(key=lambda j: j.match_score or 0, reverse=True)
+        matched = all_jobs[:15]
+    out.success(f"[2/4] 匹配完成: {count_msg}")
 
-    # eval top 10
-    out.status(f"[3/4] A-G评估 TOP {min(10, len(matched))}...")
+    # ═══════════════════════════════════════════════════
+    # Step 3: EVAL (TOP 10)
+    # ═══════════════════════════════════════════════════
+    top_n = min(10, len(matched))
+    out.status(f"[3/4] 评估 TOP {top_n}...")
     evals = []
-    for job in matched[:10]:
+    for job in matched[:top_n]:
         try:
-            er = brain.evaluate_job(job.to_dict(), resume_d)
-            db.update_job_eval(job.id or 0, f"{er.get('overall_score',0)}/5.0", json.dumps(er, ensure_ascii=False))
+            jd = job.to_dict()
+            if brain:
+                er = brain.evaluate_job(jd, resume_d)
+            else:
+                er = matcher.evaluate(jd)
+            db.update_job_eval(job.id or 0, f"{er.get('overall_score',0)}/5.0",
+                               json.dumps(er, ensure_ascii=False))
             evals.append({"job": _job_dict(job), "eval": er})
-        except Exception: pass
-    out.success(f"评估完成: {len(evals)} 个")
+        except Exception:
+            continue
+    if not evals:
+        # 至少有一个评估结果
+        top = matched[0]
+        er = matcher.evaluate(top.to_dict())
+        evals.append({"job": _job_dict(top), "eval": er})
+    out.success(f"[3/4] 评估完成: {len(evals)} 个")
 
-    # report
+    # ═══════════════════════════════════════════════════
+    # Step 4: REPORT
+    # ═══════════════════════════════════════════════════
     out.status(f"[4/4] 生成报告...")
-    report_path = _generate_report(db, matched[:20], evals, keyword, city)
-    out.success(f"报告: {report_path}")
+    mode_tag = "ai" if brain else "kw"
+    report_path = _generate_report_v2(db, matched[:30], evals, keywords, cities, mode_tag)
+    out.success(f"[4/4] 报告: {report_path}")
 
     out.result({
         "status": "done",
+        "mode": mode_tag,
         "scanned": len(all_jobs),
         "matched": len(matched),
         "evaluated": len(evals),
         "keyword": keyword, "city": city,
         "top_jobs": [e["job"] for e in evals[:5]],
-        "evals": evals,
         "report": report_path,
+        "scan_errors": scan_errors if scan_errors else None,
     }, success=True)
 
 
@@ -737,32 +841,105 @@ def _parse_cities(s: str) -> list:
 
 
 def _generate_report(db, jobs, evals, keyword, city) -> str:
-    """生成HTML报告"""
+    """旧版报告（保留兼容）"""
+    return _generate_report_v2(db, jobs, evals, [keyword], [city], "legacy")
+
+
+def _generate_report_v2(db, jobs, evals, keywords: list, cities: list, mode: str = "kw") -> str:
+    """新版统一报告 — 使用 report.css 模板"""
     import datetime
-    now = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-    path = f"output/report_{now}.html"
+    now = datetime.datetime.now()
+    ts = now.strftime("%Y%m%d_%H%M")
+    path = f"output/report_{ts}.html"
     Path("output").mkdir(exist_ok=True)
 
-    rows = ""
-    for j in jobs[:20]:
-        score = getattr(j, "match_score", 0)
-        color = "green" if score >= 80 else "orange" if score >= 60 else "red"
-        rows += f"""<tr>
-            <td>{score:.0f}%</td><td><b>{j.title}</b></td><td>{j.company}</td>
-            <td>{j.city}</td><td>{j.salary_range_display}</td><td>{getattr(j,'platform','')}</td>
-        </tr>"""
+    kw_str = " · ".join(keywords)
+    city_str = " · ".join(cities) if cities else "全国"
+    mode_str = "AI评估" if mode == "ai" else "关键词匹配"
+    kws_tag = keywords[0] if keywords else ""
 
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{{font-family:'Microsoft YaHei',sans-serif;max-width:900px;margin:20px auto;padding:20px;background:#f8f9fa}}
-h1{{color:#1a73e8}}table{{width:100%;border-collapse:collapse;background:white;box-shadow:0 1px 3px rgba(0,0,0,.1)}}
-th,td{{padding:10px 12px;text-align:left;border-bottom:1px solid #e0e0e0}}th{{background:#1a73e8;color:white}}
-tr:hover{{background:#f5f5f5}}.green{{color:green;font-weight:bold}}.orange{{color:orange}}.red{{color:red}}
-.summary{{background:white;padding:15px;margin:15px 0;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.1)}}</style>
-</head><body><h1>AI Job Hunt Report</h1>
-<div class="summary"><p><b>关键词:</b> {keyword} | <b>城市:</b> {city} | <b>时间:</b> {now} |
-<b>总岗位:</b> {len(jobs)} | <b>已评估:</b> {len(evals)}</p></div>
-<table><tr><th>匹配</th><th>岗位</th><th>公司</th><th>城市</th><th>薪资</th><th>平台</th></tr>
-{rows}</table><p style="color:#999;margin-top:20px">Generated by ai-job-hunt v{__version__}</p></body></html>"""
+    # 分类
+    cross_jobs, dev_jobs, data_jobs, env_jobs, other_jobs = [], [], [], [], []
+    env_kw = ["环保","环境","大气","水务","监测","水","碳","污染","废","绿色","生态","排放","净化"]
+    dev_kw = ["python","开发","全栈","软件","java","前端","后端","工程师","agent","智能体","架构师"]
+    data_kw = ["数据","分析","统计","GIS","遥感","AI","算法","机器学习","大模型","模型"]
+
+    for j in jobs:
+        t = (j.title or "").lower()
+        c = (j.company or "").lower()
+        d = (getattr(j, "description", "") or "").lower()
+        full = f"{t} {c} {d}"
+        is_env = any(k in full for k in env_kw)
+        is_dev = any(k in full for k in dev_kw)
+        is_data = any(k in full for k in data_kw)
+        if is_env and (is_data or is_dev):
+            cross_jobs.append(j)
+        elif is_dev:
+            dev_jobs.append(j)
+        elif is_data:
+            data_jobs.append(j)
+        elif is_env:
+            env_jobs.append(j)
+        else:
+            other_jobs.append(j)
+
+    def _card(j) -> str:
+        sc = getattr(j, "match_score", 0) or 0
+        hl = ' hl' if sc >= 60 else ''
+        stars = "★★★★★" if sc >= 80 else "★★★★" if sc >= 60 else "★★★" if sc >= 40 else "★★"
+        ev = ""
+        for e in evals:
+            if e.get("job", {}).get("id") == j.id:
+                ev = f'<span class="tg tr">已评估 {e.get("eval", {}).get("overall_score", "")}/5</span>'
+                break
+        url = getattr(j, "source_url", "") or ""
+        ttl = j.title or "(无标题)"
+        sal = j.salary_range_display or ""
+        co = j.company or ""
+        cit = j.city or ""
+        pl = getattr(j, "platform", "") or ""
+        return f"""<div class="jc{hl}">
+<div class="sr">{'<a href="'+url+'" target="_blank">'+ttl+'</a>' if url else ttl} {stars} {ev}</div>
+<div class="sy">{sal}</div>
+<div class="dc">🏢 {co} · {cit} [{pl}]</div>
+</div>"""
+
+    sections = [
+        ("🌫️ 环保×计算机交叉", cross_jobs),
+        ("💻 Python/AI开发", dev_jobs),
+        ("📊 数据分析", data_jobs),
+        ("🌿 环保/水务/环境", env_jobs),
+        ("🏫 其他", other_jobs),
+    ]
+
+    sec_html = ""
+    for title, js in sections:
+        if not js:
+            continue
+        cards = "\n".join(_card(j) for j in js[:12])
+        sec_html += f"""<div class="sec">
+<h2>{title} <span class="badge">{len(js)}条</span></h2>
+{cards}
+</div>"""
+
+    html = f"""<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>岗位报告 — {kw_str} — {ts}</title>
+<link rel="stylesheet" href="report.css">
+</head><body><div class="w">
+<div class="h0"><h1>岗位报告 — {kw_str} — {city_str}</h1>
+<div class="mt">👤 陈立志 | 环境工程硕士 | PM2.5+Python+AI<br>
+📅 {now.strftime('%Y-%m-%d %H:%M')} | 🤖 {mode_str} | 📡 GXRC + 51job browser-act 实时抓取<br>
+📊 扫描 {len(jobs)}条 | 匹配 {sum(1 for j in jobs if getattr(j,'match_score',0)>0)}条 | 评估 {len(evals)}条</div>
+</div>
+{sec_html}
+<div class="sec"><h2>📡 数据来源</h2>
+<p style="font-size:12px;color:var(--d)">GXRC(gxrc.com) + 前程无忧(51job.com) browser-act 全浏览器模式 JS eval 实时提取。<br>
+所有岗位均有可直接点击的招聘平台详情页链接。<br>
+匹配引擎: {mode_str}。关键词: {kw_str}。城市: {city_str}。</p>
+</div>
+<div class="ft">Generated by ai-job-hunt v{__version__} · CLI-first, AI-ready · {mode_str}</div>
+</div></body></html>"""
     Path(path).write_text(html, encoding="utf-8")
     return path
 

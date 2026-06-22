@@ -23,10 +23,11 @@ class AIBrain:
 
     def __init__(self, config: Config):
         self.config = config
-        self.provider = config.get("ai", "provider", "openai")
-        self.model = config.get("ai", "model", "gpt-4o-mini")
-        self.api_key = config.get("ai", "api_key", "")
-        self.api_base = config.get("ai", "api_base", "")
+        self.provider = config.get("ai", "provider", "deepseek")
+        self.model = config.get("ai", "model", "deepseek-chat")
+        # API key: 配置文件优先，其次 DEEPSEEK_API_KEY 环境变量（与 weflow-cli 一致）
+        self.api_key = config.get_api_key()
+        self.api_base = config.get("ai", "api_base", "") or "https://api.deepseek.com"
 
     def _call_llm(self, system: str, user: str, temperature: float = 0.7, 
                   max_tokens: int = 2000, response_format: Optional[dict] = None) -> str:

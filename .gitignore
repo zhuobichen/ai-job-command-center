@@ -15,24 +15,29 @@ env/
 .vscode/
 .idea/
 
-# Database
+# 数据库（本地 SQLite，含个人简历+投递记录，禁止提交）
 *.db
 data/*.db
+data/*.jsonl
+data/*.tsv
 
-# Config (contains API keys)
+# 配置文件（含 API key，禁止提交）
 config.toml
 .env
 .env.*
 !.env.example
 
-# Output
-output/*.pdf
-output/*.md
-output/*.html
+# 输出目录（含简历 PDF/MD、岗位报告，禁止提交）
+output/
+!output/report.css
 
-# Logs
+# 日志（含运行时日志，禁止提交）
 logs/
 *.log
+
+# 浏览器抓取中间文件
+batch/
+batch/tracker-additions/
 
 # OS
 .DS_Store

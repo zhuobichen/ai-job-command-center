@@ -1,147 +1,270 @@
-# AI智慧求职系统（job-hunt）
+<img src="./banner.png" width="305" align=right />
 
-> 🎯 你只管说，AI来做。  
-> 纯CLI · 本地运行 · AI驱动 · 面向中国招聘市场
+<div align="center">
 
-基于 [Career-Ops](https://github.com/santifer/career-ops) (44K⭐) 的AI求职理念 + [Get Jobs](https://github.com/loks666/get_jobs) (2.4K⭐) 的国内平台适配经验，融合打造。
+<h1>AI Job Hunt <img src="./logo.png" width="80" valign="middle" /></h1>
+
+*纯 CLI · 本地运行 · AI 驱动 · 面向中国招聘市场*
+
+> 你只管说，AI 来做
+
+![Version](https://img.shields.io/badge/version-0.3.0-blue)
+![Python](https://img.shields.io/badge/python-3.11+-green)
+![License](https://img.shields.io/badge/license-MIT-yellow)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
+
+</div>
+
+<br clear="all">
 
 ---
 
-## 🚀 快速开始
+## 目录
 
-### 环境要求
+- [✨ 近期更新](#-近期更新)
+- [Feature](#feature)
+- [Quick Start](#quick-start)
+- [Command Reference](#command-reference)
+- [Architecture](#architecture)
+- [数据来源](#数据来源)
+- [问题反馈](#问题反馈)
+- [Thanks](#thanks)
+- [License](#license)
 
-- Python 3.11+
-- 可用的 LLM API Key（OpenAI / DeepSeek / 通义千问 / 文心一言 等）
+---
 
-### 安装
+## ✨ 近期更新
+
+<details open>
+<summary>v0.3.0 — 多平台抓取 + 全自动闭环 + 关键词匹配引擎（点击展开）</summary>
+
+- ✨ **全自动闭环** — `auto` 命令一键完成 scan → match → eval → report 四步
+- ✨ **关键词匹配引擎** — 内置 `KeywordMatcher`，无需 AI API key 也能打分评估
+- ✨ **A-G 八块评估** — 角色摘要/简历匹配/级别策略/薪酬调研/简历定制/面试准备/合法性检查
+- ✨ **多平台抓取** — GXRC + 51job + BOSS直聘 browser-act 全浏览器模式
+- ✨ **大学就业网** — 广西大学·桂林理工·南宁师大·广西民大·华南理工等 15 个渠道
+- ✨ **管道自动化** — 去重/合并/状态标准化/岗位有效期 HTTP 检测
+- ✨ **智能过滤** — 猎头/黑名单/薪资/培训伪装 5 维拦截
+- 🔧 **--json 输出** — 所有命令支持 `--json`，AI 可解析
+- 🔧 **report.css** — 统一报告样式模板
+
+</details>
+
+<details>
+<summary>v0.2.0 — A-G 评估 + browser-act 集成（点击展开）</summary>
+
+- ✨ browser-act 集成，安全子进程调用（shell=False 防注入）
+- ✨ 岗位原型分类器（Python开发/数据分析/AI信息化/环境科技/政府事业）
+- ✨ 五层公司交叉验证
+- 🔧 CLI 统一为 Typer + Rich，双模式输出（终端/JSON）
+
+</details>
+
+[完整变更记录 →](https://github.com/zhuobichen/ai-job-command-center/commits/main)
+
+---
+
+## Feature
+
+| 分类 | 功能 |
+|------|------|
+| 🔍 **抓取** | GXRC · 前程无忧 · BOSS直聘 · 桂聘网 · browser-act 全浏览器模式 · stealth-extract 大学就业网 |
+| 🎯 **匹配** | AI 匹配（DeepSeek，可选）· 关键词匹配引擎（本地，免 API）· 双引擎自动降级 |
+| 📊 **评估** | A-G 八块体系 · 岗位原型分类 · STAR+R 面试故事 · 五层公司验证 · 智能过滤 |
+| ⚡ **自动化** | `auto` 全自动闭环 · 多关键词并行搜索 · 城市优先排序 · 数据库去重 |
+| 📄 **简历** | AI 优化简历 · STAR 法则 · Markdown/PDF 输出 |
+| 🚀 **投递** | 智能投递（评分门槛 + 黑名单过滤）· BOSS直聘发送 |
+| 📋 **管道** | 去重 · 状态标准化 (9态) · 有效期 HTTP 检测 · 健康检查 · 追踪合并 |
+| 📊 **报告** | 统一 HTML 报告 · report.css 固定样式 · JSON 机器可读 · 交叉分类 |
+| 🔒 **隐私** | 纯本地 SQLite · 零网络上传 · 配置文件本地存储 |
+
+---
+
+## Quick Start
+
+> 前置：Python 3.11+ / Chrome 浏览器
+
+**1. 安装**
 
 ```bash
-# 1. 进入项目目录
-cd ai-job-hunt
-
-# 2. 安装依赖
-pip install typer rich pydantic tomli tomli-w litellm
-
-# 3. （可选）安装浏览器自动化依赖
-pip install playwright
-playwright install chromium
-
-# 4. （可选）安装PDF生成依赖
-pip install weasyprint
+git clone https://github.com/zhuobichen/ai-job-command-center.git
+cd ai-job-command-center
+pip install -e .
 ```
 
-### 使用
+**2. 初始化**
 
 ```bash
-# 查看帮助
-python -m src.job_hunt.cli --help
-
-# 初始化（AI引导式配置）
-python -m src.job_hunt.cli init
-
-# 查看状态
-python -m src.job_hunt.cli status
+python -m job_hunt init                # AI 引导式配置（-y 跳过交互）
 ```
+
+**3. 开始使用（关键词匹配模式，无需 API key）**
+
+```bash
+python -m job_hunt auto -k "Python 开发,环保" -c 南宁
+```
+
+**4. AI 增强模式（需要 DeepSeek API key）**
+
+```bash
+# 方式一：配置文件 config.toml → [ai] → api_key = "sk-xxx"
+# 方式二：环境变量（与 weflow-cli 一致）
+export DEEPSEEK_API_KEY="sk-xxx"
+
+python -m job_hunt auto -k "大气环境,数据分析" -c 南宁,广州 --ai
+```
+
+> ⚠️ **DeepSeek API key**：配置文件 `config.toml` 中设置或设环境变量 `DEEPSEEK_API_KEY`，与 weflow-cli 共用同一个 key。
+>
+> 💡 **无需 API key**：系统内置关键词匹配引擎，`auto` 命令默认使用本地匹配器，无需任何 AI API key 即可完成 scan → match → eval → report 全流程。
 
 ---
 
-## 📋 命令一览
+## Command Reference
 
-| 命令 | 功能 | 示例 |
+### 核心命令
+
+| 命令 | 说明 | 示例 |
 |------|------|------|
-| `init` | 🚀 初始化配置（AI引导式问答） | `job-hunt init` |
-| `scan` | 🔍 扫描招聘平台抓取岗位 | `job-hunt scan -k "Python开发" -c 北京` |
-| `match` | 🎯 AI智能匹配岗位 | `job-hunt match -n 20 -m 60` |
-| `eval` | 📊 六维深度评估 | `job-hunt eval 1` |
-| `resume` | 📄 生成定制化简历 | `job-hunt resume 1 -f pdf` |
-| `apply` | 🚀 自动投递 | `job-hunt apply 1` |
-| `status` | 📊 查看投递状态 | `job-hunt status` |
-| `chat` | 💬 AI对话模式 | `job-hunt chat` |
-| `parse` | 📄 单独解析简历 | `job-hunt parse resume.pdf` |
+| `init` | 🚀 AI 引导初始化 | `python -m job_hunt init` |
+| `auto -k "关键词" -c 城市` | ⚡ 全自动闭环 | `python -m job_hunt auto -k "Python 开发,环保" -c 南宁` |
+| `scan -k "关键词" -p 平台` | 🔍 扫描招聘平台 | `python -m job_hunt scan -k "数据分析" -p gxrc` |
+| `match` | 🎯 AI/关键词匹配 | `python -m job_hunt match -n 20` |
+| `eval <id>` | 📊 A-G 深度评估 | `python -m job_hunt eval 1` |
+| `resume <id>` | 📄 生成定制简历 | `python -m job_hunt resume 1 -f md` |
+| `apply <id>` | 🚀 智能投递 | `python -m job_hunt apply 1` |
+| `report` | 📋 生成报告 | `python -m job_hunt report` |
+| `status` | 📊 投递状态 | `python -m job_hunt status --json` |
+
+### 管道管理
+
+| 命令 | 说明 |
+|------|------|
+| `pipeline liveness -n 50` | 岗位有效期检测 |
+| `pipeline dedup` | 跨平台去重 |
+| `pipeline health` | 管道健康检查 |
+
+### 配置管理
+
+| 命令 | 说明 |
+|------|------|
+| `config list` | 查看全部配置 |
+| `config get -k ai.api_key` | 获取配置项 |
+| `config set -k ai.api_key -v sk-xxx` | 设置配置项 |
+
+### 其他
+
+| 命令 | 说明 |
+|------|------|
+| `verify <公司>` | 🔍 公司五层交叉验证 |
+| `filter <公司>` | ⛔ 黑名单管理 |
+| `parse <简历>` | 📄 解析简历 |
+| `chat` | 💬 AI 对话模式 |
+
+### 通用选项
+
+| 选项 | 说明 |
+|------|------|
+| `--json`, `-j` | JSON 输出（AI 模式） |
+| `--yes`, `-y` | 跳过交互确认 |
+| `--ai` | 启用 AI 评估（需配置 API key） |
+| `--dry-run` | 干跑模式（仅扫描不评估） |
+| `--min-score`, `-m` | 最低匹配度（默认 30%） |
 
 ---
 
-## 🏗️ 项目结构
+## Architecture
 
 ```
-ai-job-hunt/
-├── pyproject.toml          # 项目配置
-├── config.toml             # 用户配置（自动生成）
-├── data/
-│   └── resume.db           # SQLite本地数据库
-├── src/
-│   └── job_hunt/
-│       ├── cli.py          # CLI入口（9个命令）
-│       ├── ai/
-│       │   └── brain.py    # AI编排层（LLM调用）
-│       ├── scrapers/
-│       │   └── boss.py     # BOSS直聘抓取器
-│       ├── applier/
-│       │   └── auto_apply.py # 自动投递引擎
-│       ├── models/
-│       │   ├── resume.py   # 简历数据模型
-│       │   ├── job.py      # 岗位数据模型
-│       │   └── application.py # 投递记录模型
-│       ├── db/
-│       │   └── database.py # SQLite操作
-│       └── utils/
-│           ├── config.py   # TOML配置管理
-│           └── display.py  # Rich终端美化
-├── output/                 # 生成的简历文件
-└── logs/                   # 运行日志
+┌──────────────────────────────────────────────────────────┐
+│                     CLI (Typer + Rich)                    │
+│   init │ scan │ match │ eval │ auto │ resume │ apply ...  │
+│                               │                          │
+│                    双模式输出层 (utils/output.py)          │
+│                     Rich 终端 ←│→ JSON 机器可读            │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │
+│  │  信息采集层   │  │   评估匹配层   │  │   管道管理层    │  │
+│  │             │  │              │  │                │  │
+│  │ scrapers/   │  │  ai/         │  │  pipeline/     │  │
+│  │ ├─ gxrc.py  │  │  ├─ brain.py  │  │  ├─ merge.py   │  │
+│  │ ├─ job51.py │  │  ├─ matcher.py│  │  ├─ dedup.py   │  │
+│  │ ├─ boss.py  │  │  ├─ verifier  │  │  ├─ normalize  │  │
+│  │ └─ guipin   │  │  └─ archetype │  │  └─ liveness   │  │
+│  │             │  │              │  │                │  │
+│  │ browser_act │  │  A-G 八块评估  │  │  9态状态机     │  │
+│  │ 集成模块     │  │  关键词匹配    │  │  有效期检测    │  │
+│  │             │  │  智能过滤     │  │  健康检查      │  │
+│  └──────┬──────┘  └──────┬───────┘  └───────┬────────┘  │
+│         │                │                   │           │
+│  ┌──────┴────────────────┴───────────────────┴────────┐  │
+│  │              models/ (数据模型) + db/ (SQLite)      │  │
+│  └────────────────────────────────────────────────────┘  │
+│                                                          │
+├──────────────────────────────────────────────────────────┤
+│  外部工具: browser-act CLI · Playwright · httpx          │
+│  平台: GXRC · 前程无忧 · BOSS直聘 · 桂聘网 · 15+大学就业网│
+└──────────────────────────────────────────────────────────┘
 ```
 
----
-
-## 🔧 技术栈
-
-| 组件 | 选型 | 说明 |
-|------|------|------|
-| 编程语言 | Python 3.11+ | AI生态最完善 |
-| CLI框架 | Typer + Rich | 美观的命令行输出 |
-| LLM调用 | litellm | 统一接口，兼容多种模型 |
-| 数据库 | SQLite | 纯本地，零配置 |
-| 浏览器自动化 | Playwright | 本地Chromium |
-| PDF生成 | WeasyPrint | HTML→PDF |
+详见 [UPGRADE_PLAN.md](./UPGRADE_PLAN.md) 和 [ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 
 ---
 
-## 🎯 设计理念
+## 数据来源
 
-**参考 Career-Ops 的核心理念：**
-- 🧠 AI分析，人决策 — 系统不会自动投递，最终决定权在你
-- 📊 A-F六维评估 — 岗位匹配度、职级定位、薪资、公司质量、成长空间
-- 🔍 精准匹配而非海投 — 从数百个岗位筛选出真正值得的
-
-**融入 Get Jobs 的实战经验：**
-- 🇨🇳 中国招聘平台适配（BOSS直聘、前程无忧、猎聘等）
-- 🛡️ 反爬策略（本地浏览器、频率控制）
-- 💬 个性化打招呼语生成
-
----
-
-## 📝 支持的AI模型
-
-通过 litellm 统一接口，支持：
-- OpenAI: gpt-4o / gpt-4o-mini
-- Anthropic: claude-3-5-sonnet / claude-3-5-haiku
-- DeepSeek: deepseek-chat / deepseek-reasoner
-- 通义千问: qwen-turbo / qwen-plus
-- 文心一言: ernie-4.0-turbo
-- 及任何 OpenAI 兼容接口
+| # | 渠道 | 抓取方式 | 状态 |
+|---|------|------|:--:|
+| 1 | 广西人才网 gxrc.com | browser-act 全浏览器 JS eval | ✅ |
+| 2 | 前程无忧 51job.com | 全浏览器 JS eval `.joblist-item` | ✅ |
+| 3 | BOSS直聘 zhipin.com | headed 登录 + cookie 复用 | ✅ |
+| 4 | 广西大学·资环材就业（22页） | stealth-extract | ✅ |
+| 5 | 桂林理工·环境就业（7页） | stealth-extract | ✅ |
+| 6 | 华南理工·环境学院 | stealth-extract | ✅ |
+| 7 | 中山大学·环境学院 | WebSearch | ✅ |
+| 8 | 广东工业大学·环境学院 | WebSearch | ✅ |
+| 9-15 | 更多大学就业网 | 见 `docs/AI查岗路径_资料来源.md` | ✅ |
 
 ---
 
-## ⚠️ 免责声明
+## 问题反馈
 
-- 本工具仅供个人求职辅助使用
-- 请遵守各招聘平台的使用条款
-- 注意控制抓取频率，避免对平台造成压力
-- 数据全部存储在本地，不会上传到任何服务器
+- **[GitHub Issues](https://github.com/zhuobichen/ai-job-command-center/issues)** — Bug 报告 / 功能请求
+
+提交时建议附上：操作命令、错误输出、Python 版本和操作系统。
 
 ---
 
-## 📄 许可
+## Thanks
 
-MIT License
+| 项目 | 用途 |
+|------|------|
+| [career-ops](https://github.com/santifer/career-ops) (44K⭐) | A-G 评估体系 · 管道管理 · STAR+R 故事库 · 42种模式参考 |
+| [get_jobs](https://github.com/loks666/get_jobs) (2.4K⭐) | 国内招聘平台适配经验 · 反爬策略 · 智能过滤 |
+| [browser-act](https://github.com/browseract) | 浏览器自动化 CLI · stealth-extract · 多平台抓取引擎 |
+| [DeepSeek](https://deepseek.com/) | AI 评估与简历优化引擎 |
+| [Typer](https://typer.tiangolo.com/) + [Rich](https://rich.readthedocs.io/) | CLI 框架与终端美化 |
+| [litellm](https://github.com/BerriAI/litellm) | 多模型统一调用接口 |
+
+---
+
+## 🔒 隐私保护
+
+| 维度 | 措施 |
+|------|------|
+| **数据存储** | 全部本地 SQLite (`data/resume.db`)，简历/投递记录/岗位库均不离开本机 |
+| **API key** | 支持环境变量 `DEEPSEEK_API_KEY`（与 weflow-cli 共用同一 key），配置文件 `config.toml` 已在 `.gitignore` 排除 |
+| **网络行为** | 仅通过浏览器直连招聘平台抓取岗位；AI 调用仅发送岗位文本和简历摘要，不传输个人身份信息 |
+| **伦理约束** | AI 评分 < 4.0/5 的岗位强烈不建议投递；`apply` 命令必须人工确认，绝不自动提交 |
+| **版本控制** | `config.toml`、`.env`、`data/`、`output/`、`logs/` 全部在 `.gitignore` 中，不会推送到 GitHub |
+
+> 💡 **与 weflow-cli 一致**：使用同一个 `DEEPSEEK_API_KEY` 环境变量，纯本地运行，零数据上传。
+
+---
+
+## License
+
+MIT License. See [LICENSE](./LICENSE) for details.
+
+> 本工具仅供个人求职辅助使用。请遵守各招聘平台的使用条款，注意控制抓取频率。AI 不会自动提交申请，最终决定权在你。

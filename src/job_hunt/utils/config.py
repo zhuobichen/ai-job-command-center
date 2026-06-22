@@ -44,7 +44,9 @@ education = "硕士"
 # LLM API配置（兼容 OpenAI/Claude/通义千问/文心一言/DeepSeek）
 provider = "deepseek"
 model = "deepseek-chat"
+# API key（留空则自动从环境变量 DEEPSEEK_API_KEY 读取，与 weflow-cli 一致）
 api_key = ""
+# API Base URL（留空默认 https://api.deepseek.com）
 api_base = ""
 
 [platforms]
@@ -154,7 +156,11 @@ class Config:
 
     @property
     def is_configured(self) -> bool:
-        """检查是否已完成基本配置"""
+        """检查是否已完成基本配置（配置文件或环境变量有 API key 即可）"""
         ai = self.ai
-        has_ai = bool(ai.get("api_key", ""))
-        return has_ai
+        return bool(ai.get("api_key", "")) or bool(os.environ.get("DEEPSEEK_API_KEY", ""))
+
+    def get_api_key(self) -> str:
+        """获取 API key（优先级：配置文件 > 环境变量 DEEPSEEK_API_KEY）"""
+        ai = self.ai
+        return ai.get("api_key", "") or os.environ.get("DEEPSEEK_API_KEY", "")
