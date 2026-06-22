@@ -134,23 +134,29 @@
 
 ### 8. 百色学院·农业与食品工程学院 就业
 ```
-学院官网：http://nxy.bsuc.edu.cn
-状态：❌ DNS 不通，暂不可用
+学院官网：http://nxy.bsuc.edu.cn/
+招生就业栏：http://nxy.bsuc.edu.cn/zsjy.htm
+方式：stealth-extract（全浏览器被拒，stealth-extract 可行）
 ```
-- 可靠性：低（DNS 解析失败）
+- 状态：⏳ 已突破访问，就业栏目待提取
+- 可靠性：中（环境类岗位偏少，偏农业方向）
 
 ### 9. 桂林电子科技大学·生命与环境科学学院 就业
 ```
 学院官网：https://www.guet.edu.cn
 状态：⏳ 待完善（已确认有就业动员会，就业信息页面 URL 待补充）
 ```
-- 可靠性：中（待 browser-act 验证）
+- 可靠性：中
 
 ### 10. 南宁师范大学·环境与生命科学学院
 ```
-状态：❌ WAF 安全拦截（全站阻断 "您的访问请求可能对网站造成安全威胁"）
+stealth-extract 可访问：http://hjsmxy.nnnu.edu.cn/
+新闻动态：http://hjsmxy.nnnu.edu.cn/xyxw/xwdt.htm
+通知公告：http://hjsmxy.nnnu.edu.cn/xyxw/tzgg.htm
+方式：全浏览器被 WAF 拦截 → stealth-extract 绕过了！
 ```
-- 可靠性：不可用
+- 状态：✅ 已突破访问（实际就业信息少，偏生物师范方向）
+- 可靠性：中（环境类企业招聘信息极少）
 
 ---
 
