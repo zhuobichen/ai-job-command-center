@@ -821,6 +821,7 @@ def _scrape_university_sites(keyword: str, city: str, pages: int, out: Output) -
     sources = [
         ("gxu", "广西大学·资环材", "https://gxulif.gxu.edu.cn/CN/rcpy/jyxx.htm", "gxu"),
         ("glut", "桂林理工·环境", "https://hjxy.glut.edu.cn/xwzx1/fqtg.htm", "glut"),
+        ("scut", "华南理工·就业中心", "https://jyzx.scut.edu.cn/37757/list.htm", "scut"),
     ]
 
     for tag, name, url, ptype in sources:
@@ -924,7 +925,6 @@ def _parse_univ(ptype: str, lines: list, tag: str) -> list:
                 break
 
     elif ptype == "list":
-        # 通用列表：标题行是招聘条目
         for line in lines:
             if any(k in line for k in ["就业信息","招生就业","当前位置","首页"]):
                 continue
@@ -936,6 +936,35 @@ def _parse_univ(ptype: str, lines: list, tag: str) -> list:
                 "desc": line,
             })
             if len(entries) >= 10:
+                break
+
+    elif ptype == "scut":
+        # SCUT 网络招聘：公司行→岗位行(含|分隔)→日期行
+        i = 0
+        while i < len(lines):
+            l = lines[i]
+            # 检测日期行 (YYYY.MM.DD)
+            if re.match(r"\d{4}\.\d{2}\.\d{2}$", l):
+                date = l.replace(".", "-")
+                company = ""; jobs = ""
+                j = i - 1
+                while j >= 0 and not re.match(r"\d{4}\.\d{2}\.\d{2}$", lines[j]):
+                    if re.search(r"公司|集团|有限|中心|学院|大学|研究院", lines[j]) and not company:
+                        company = lines[j]
+                    elif "|" in lines[j] and not jobs:
+                        jobs = lines[j]
+                    j -= 1
+                if company and jobs:
+                    entries.append({
+                        "title": f"{company}: {jobs[:60]}",
+                        "company": company,
+                        "date": date,
+                        "desc": jobs[:300],
+                    })
+                i += 1
+            else:
+                i += 1
+            if len(entries) >= 15:
                 break
 
     return entries
