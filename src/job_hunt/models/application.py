@@ -15,7 +15,8 @@ class Application:
     company: str = ""
     platform: str = ""
 
-    status: str = "applied"     # applied/replied/interview/offer/rejected/ignored
+    # 状态对齐 career-ops 规范: evaluated/applied/responded/interview/offer/rejected/discarded/skip/ignored
+    status: str = "applied"
     applied_at: str = field(default_factory=lambda: datetime.now().isoformat())
     replied_at: Optional[str] = None
     interview_at: Optional[str] = None
@@ -31,27 +32,33 @@ class Application:
 
     @property
     def status_display(self) -> str:
-        """状态中文显示"""
+        """状态中文显示（对齐 career-ops 规范）"""
         mapping = {
-            "applied": "🟡 已投递",
-            "replied": "🟢 已回复",
-            "interview": "🔵 面试中",
-            "offer": "🎉 已获Offer",
-            "rejected": "🔴 已拒绝",
-            "ignored": "⚫ 未回复",
+            "evaluated": "[?] 已评估",
+            "applied": "[*] 已投递",
+            "responded": "[->] 已回复",
+            "interview": "[!!] 面试中",
+            "offer": "[OK] 已获Offer",
+            "rejected": "[X] 已拒绝",
+            "discarded": "[-] 已放弃",
+            "skip": "[SKIP] 跳过",
+            "ignored": "[.] 未回复",
         }
         return mapping.get(self.status, self.status)
 
     @property
     def status_sort_order(self) -> int:
-        """状态排序优先级"""
+        """状态排序优先级（对齐 career-ops 规范）"""
         order = {
             "interview": 0,
-            "replied": 1,
+            "responded": 1,
             "applied": 2,
-            "ignored": 3,
-            "rejected": 4,
-            "offer": 5,
+            "evaluated": 3,
+            "ignored": 4,
+            "rejected": 5,
+            "offer": 6,
+            "discarded": 7,
+            "skip": 8,
         }
         return order.get(self.status, 10)
 
