@@ -523,10 +523,12 @@ def auto(
         except Exception:
             continue
     if not evals:
-        # 至少有一个评估结果
-        top = matched[0]
-        er = matcher.evaluate(top.to_dict())
-        evals.append({"job": _job_dict(top), "eval": er})
+        if matched:
+            top = matched[0]
+            er = matcher.evaluate(top.to_dict())
+            evals.append({"job": _job_dict(top), "eval": er})
+        else:
+            out.warn("无岗位可评估，跳过评估步骤")
     out.success(f"[3/4] 评估完成: {len(evals)} 个")
 
     # ═══════════════════════════════════════════════════

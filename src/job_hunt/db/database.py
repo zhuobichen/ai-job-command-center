@@ -3,6 +3,7 @@
 import sqlite3
 import json
 import os
+import re
 from typing import Optional
 from datetime import datetime
 
@@ -186,8 +187,17 @@ class Database:
         if active_only:
             conditions.append("is_active=1 AND is_deleted=0")
         if city:
-            conditions.append("(city LIKE ? OR district LIKE ?)")
-            params.extend([f"%{city}%", f"%{city}%"])
+            # 支持逗号分隔的多城市查询（南宁,广州 → 查询任一匹配）
+            cities = [c.strip() for c in re.split(r'[,，、]', city) if c.strip()]
+            if len(cities) == 1:
+                conditions.append("(city LIKE ? OR district LIKE ?)")
+                params.extend([f"%{cities[0]}%", f"%{cities[0]}%"])
+            else:
+                city_conds = []
+                for c in cities:
+                    city_conds.append("(city LIKE ? OR district LIKE ?)")
+                    params.extend([f"%{c}%", f"%{c}%"])
+                conditions.append("(" + " OR ".join(city_conds) + ")")
         if platform:
             conditions.append("platform=?")
             params.append(platform)

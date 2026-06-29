@@ -77,6 +77,7 @@ class TestDatabase:
 
     def test_get_jobs_limit_offset(self, temp_db):
         db = Database(str(temp_db))
+        from job_hunt.models.job import Job
         for i in range(20):
             job = Job(title=f"Job {i}", company="Test", city="南宁", platform="gxrc")
             db.save_job(job)
@@ -86,3 +87,23 @@ class TestDatabase:
 
         jobs = db.get_jobs(limit=5, offset=10)
         assert len(jobs) == 5
+
+    def test_get_jobs_multi_city_query(self, temp_db):
+        """回归测试：逗号分隔的多城市查询应匹配任一城市"""
+        db = Database(str(temp_db))
+        from job_hunt.models.job import Job
+        db.save_job(Job(title="Job A", company="C", city="南宁", platform="gxrc"))
+        db.save_job(Job(title="Job B", company="C", city="广州", platform="gxrc"))
+        db.save_job(Job(title="Job C", company="C", city="桂林", platform="gxrc"))
+
+        # 单城市
+        assert len(db.get_jobs(city="南宁")) == 1
+        # 多城市（逗号分隔）应匹配南宁+广州，不含桂林
+        multi = db.get_jobs(city="南宁,广州")
+        assert len(multi) == 2
+        titles = {j.title for j in multi}
+        assert "Job A" in titles
+        assert "Job B" in titles
+        assert "Job C" not in titles
+        # 中文逗号也支持
+        assert len(db.get_jobs(city="南宁，广州")) == 2
