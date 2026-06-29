@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  job-hunt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: job-hunt:latest
+    container_name: job-hunt
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./data:/home/jobhunt/data
+      - ./output:/home/jobhunt/output
+      - ./logs:/home/jobhunt/logs
+      - ./config.toml:/home/jobhunt/config.toml:ro
+    env_file:
+      - .env
+    profiles:
+      - production
+
+  job-hunt-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    image: job-hunt:dev
+    container_name: job-hunt-dev
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - .:/app
+      - ./data:/home/jobhunt/data
+      - ./output:/home/jobhunt/output
+      - ./logs:/home/jobhunt/logs
+    env_file:
+      - .env
+    profiles:
+      - development
+    stdin_open: true
+    tty: true
+
+  # Playwright browser for scraping (requires browser extra)
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.45.0-jammy
+    container_name: job-hunt-playwright
+    profiles:
+      - browser
+    volumes:
+      - ./data:/data
+    environment:
+      - PLAYWRIGHT_BROWSERS_PATH=/data/browsers

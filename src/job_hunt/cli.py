@@ -789,6 +789,40 @@ def verify(
 
 
 @app.command()
+def health(
+    json_mode: bool = typer.Option(False, "--json", "-j"),
+):
+    """🏥 系统健康检查（环境/依赖/目录/数据库/API Key）"""
+    from .health import get_health_check
+    out = _setup(json_mode, False)
+    hc = get_health_check()
+    summary = hc.get_status_summary()
+
+    if not json_mode:
+        from rich.console import Console
+        from rich.table import Table
+
+        console = Console()
+        table = Table(title="Health Checks")
+        table.add_column("Component", style="cyan")
+        table.add_column("Status", style="green")
+        table.add_column("Details")
+
+        for name, result in summary["checks"].items():
+            status = "✓ OK" if result["healthy"] else "✗ FAIL"
+            details = result.get("status", "")
+            table.add_row(name, status, details)
+
+        console.print(table)
+        if summary["healthy"]:
+            out.success("All health checks passed")
+        else:
+            out.warn("Some health checks failed")
+
+    out.result(summary)
+
+
+@app.command()
 def parse(
     file_path: str = typer.Argument(..., help="简历文件路径"),
     json_mode: bool = typer.Option(False, "--json", "-j"),
