@@ -15,6 +15,11 @@ env/
 .vscode/
 .idea/
 
+# Runtime
+.local/
+output/
+!output/report.css
+
 # 数据库（本地 SQLite，含个人简历+投递记录，禁止提交）
 *.db
 data/*.db
@@ -27,12 +32,7 @@ config.toml
 .env.*
 !.env.example
 
-# 输出目录（含简历 PDF/MD、岗位报告，禁止提交）
-output/
-!output/report.css
-
-# 日志（含运行时日志，禁止提交）
-logs/
+# Logs
 *.log
 
 # 浏览器抓取中间文件

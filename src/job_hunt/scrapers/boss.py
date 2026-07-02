@@ -82,8 +82,8 @@ class BossScraper:
                 print_info(f"当前页面: {page.url}")
                 # 尝试截图保存
                 try:
-                    await page.screenshot(path="logs/boss_captcha.png")
-                    print_info("截图已保存至 logs/boss_captcha.png")
+                    await page.screenshot(path=".local/logs/boss_captcha.png")
+                    print_info("截图已保存至 .local/logs/boss_captcha.png")
                 except Exception:
                     pass
                 return jobs

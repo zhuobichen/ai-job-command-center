@@ -97,7 +97,7 @@ class GxrcScraper:
             if "javascript" in title.lower() or "sorry" in title.lower():
                 print_warning("广西人才网需要JS渲染，页面可能未正常加载")
                 if self.debug:
-                    await page.screenshot(path="logs/gxrc_debug.png")
+                    await page.screenshot(path=".local/logs/gxrc_debug.png")
                 return jobs
 
             for p in range(max_pages):
@@ -111,9 +111,9 @@ class GxrcScraper:
                 if not job_cards:
                     # 截图调试
                     if self.debug:
-                        await page.screenshot(path=f"logs/gxrc_page{p}.png")
+                        await page.screenshot(path=f".local/logs/gxrc_page{p}.png")
                         html = await page.content()
-                        with open(f"logs/gxrc_page{p}.html", "w", encoding="utf-8") as f:
+                        with open(f".local/logs/gxrc_page{p}.html", "w", encoding="utf-8") as f:
                             f.write(html[:50000])
                     print_warning(f"第{p+1}页未找到岗位卡片(.position-item)，已保存调试截图")
                     break

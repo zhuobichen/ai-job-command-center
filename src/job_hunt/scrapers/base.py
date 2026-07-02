@@ -58,9 +58,9 @@ class BaseScraper(ABC):
 
     def _save_debug_html(self, url: str, html: str):
         """保存调试 HTML"""
-        os.makedirs("logs", exist_ok=True)
+        os.makedirs(".local/logs", exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        fname = f"logs/{self.platform}_{ts}.html"
+        fname = f".local/logs/{self.platform}_{ts}.html"
         with open(fname, "w", encoding="utf-8") as f:
             f.write(f"<!-- {url} -->\n")
             f.write(html[:50000])

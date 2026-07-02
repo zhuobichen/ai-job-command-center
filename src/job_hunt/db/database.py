@@ -14,7 +14,7 @@ from ..models.application import Application
 class Database:
     """本地SQLite数据库管理"""
 
-    def __init__(self, db_path: str = "data/resume.db"):
+    def __init__(self, db_path: str = ".local/data/resume.db"):
         self.db_path = db_path
         os.makedirs(os.path.dirname(db_path) if os.path.dirname(db_path) else ".", exist_ok=True)
         self._init_tables()

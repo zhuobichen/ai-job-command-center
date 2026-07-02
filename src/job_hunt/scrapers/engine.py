@@ -269,7 +269,7 @@ def _api_key() -> str:
     import os
     # 尝试从配置文件加载
     try:
-        config_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "config.toml")
+        config_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "config.toml")
         config_path = os.path.abspath(config_path)
         if os.path.exists(config_path):
             import tomli
