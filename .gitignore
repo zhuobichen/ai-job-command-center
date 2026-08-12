@@ -42,3 +42,14 @@ batch/tracker-additions/
 # OS
 .DS_Store
 Thumbs.db
+
+# 隐私资料（禁止提交）
+# 项目资料（简历源、证件照、EPA 计划书等，含真实姓名/联系方式/合同信息）
+docs/项目资料/
+docs/项目记录.txt
+# 旧版简历脚本（硬编码简历内容）
+scripts/generate_resume_pdf.py
+# 简历文本提取的临时文件
+temp_*.txt
+# 运行时临时目录
+tmp/
