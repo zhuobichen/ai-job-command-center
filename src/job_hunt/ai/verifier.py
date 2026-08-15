@@ -213,7 +213,7 @@ def verify_company(company_name: str, target_direction: str = "") -> VerifyResul
 - 如果有不确定的信息，在对应的字段留空或标注为false"""
 
     resp = completion(
-        model="deepseek/deepseek-chat",
+        model=_get_model(),
         messages=[
             {"role": "system", "content": VERIFY_SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
@@ -251,7 +251,7 @@ def verify_company_with_search(
 4. 输出严格的 JSON 格式"""
 
     resp = completion(
-        model="deepseek/deepseek-chat",
+        model=_get_model(),
         messages=[
             {"role": "system", "content": VERIFY_SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
@@ -275,3 +275,15 @@ def _get_api_key() -> str:
         import os
         # 尝试从环境变量获取
         return os.environ.get("DEEPSEEK_API_KEY", "")
+
+
+def _get_model() -> str:
+    """从配置读取 provider/model，返回 litellm 格式的模型串（如 deepseek/deepseek-chat）"""
+    try:
+        from ..utils.config import Config
+        c = Config()
+        provider = c.get("ai", "provider", "deepseek")
+        model = c.get("ai", "model", "deepseek-chat")
+        return f"{provider}/{model}"
+    except Exception:
+        return "deepseek/deepseek-chat"

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "job-hunt"
-version = "0.2.0"
+version = "0.3.0"
 description = "AI智慧求职系统 - 纯CLI、本地运行、面向中国招聘市场"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -564,46 +564,48 @@ def eval(
 
     # 显示评估结果
     from rich.panel import Panel
-    from rich.table import Table
 
     overall = result.get("overall_score", "N/A")
-    priority = result.get("投递优先级", "N/A")
+    priority = result.get("apply_recommendation", "N/A")
 
     console.print()
     console.print(Panel.fit(
         f"[bold white]{job.title}[/bold white]\n[dim]{job.company} | {job.city} | {job.salary_range_display}[/dim]",
         border_style="cyan",
-        title=f"综合评分: [bold yellow]{overall}[/bold yellow]",
+        title=f"综合评分: [bold yellow]{overall}[/bold yellow] · 建议: [bold magenta]{priority}[/bold magenta]",
     ))
 
-    # 评估维度表
-    eval_table = Table(box=None, padding=(0, 2))
-    eval_table.add_column("维度", style="dim", width=14)
-    eval_table.add_column("评分", style="bold", width=8)
-    eval_table.add_column("说明", style="white")
+    # A-G 八块评估结果
+    sections = [
+        ("A · 角色摘要", result.get("A_role_summary")),
+        ("B · 简历匹配", result.get("B_cv_match")),
+        ("C · 级别策略", result.get("C_level_strategy")),
+        ("D · 薪酬调研", result.get("D_comp")),
+        ("E · 简历定制", result.get("E_resume_custom")),
+        ("F · 面试准备", result.get("F_interview")),
+        ("G · 合法性检查", result.get("G_legitimacy")),
+    ]
+    for title, data in sections:
+        if not data:
+            continue
+        console.print(f"\n[bold cyan]{title}[/bold cyan]")
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if isinstance(v, list):
+                    v = "；".join(
+                        (x.get("q", "") + (f"（{x.get('hint', '')}）" if x.get("hint") else ""))
+                        if isinstance(x, dict) else str(x)
+                        for x in v
+                    )
+                elif isinstance(v, dict):
+                    v = " / ".join(f"{kk}: {vv}" for kk, vv in v.items())
+                console.print(f"  [dim]{k}:[/dim] {v}")
+        else:
+            console.print(f"  {data}")
 
-    dimensions = ["岗位匹配度", "职级定位", "薪资水平", "公司质量", "成长空间"]
-    for dim in dimensions:
-        dim_data = result.get(dim, {})
-        score = dim_data.get("score", "-")
-        comment = dim_data.get("comment", "")
-        color = "green" if score.startswith("A") else "yellow" if score.startswith("B") else "red"
-        eval_table.add_row(dim, f"[{color}]{score}[/{color}]", comment)
-
-    eval_table.add_row("投递优先级", f"[bold magenta]{priority}[/bold magenta]", "")
-
-    console.print(eval_table)
-
-    # 面试准备
-    questions = result.get("interview_questions", [])
-    if questions:
-        console.print("\n[bold yellow]🎤 面试可能问到:[/bold yellow]")
-        for q in questions:
-            console.print(f"  • {q}")
-
-    advice = result.get("advice", "")
-    if advice:
-        console.print(f"\n[bold cyan]💡 准备建议:[/bold cyan] {advice}")
+    red_flags = result.get("red_flags", [])
+    if red_flags:
+        console.print(f"\n[bold red]🚩 红线:[/bold red] " + "；".join(str(x) for x in red_flags))
 
     # 保存评估结果
     db.update_job_eval(job_id, overall, json.dumps(result, ensure_ascii=False))
