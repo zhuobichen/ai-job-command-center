@@ -1142,6 +1142,190 @@ def _display_verify_result(result: VerifyResult, config):
         console.print("  ⚫ 不建议投递，存在严重风险信号")
 
 
+# ─── CONFIG ───────────────────────────────────────────────
+
+@app.command()
+def config(
+    action: str = typer.Argument("list", help="list / get / set"),
+    key: str = typer.Option(None, "--key", "-k", help="配置项，格式 section.key，如 ai.api_key"),
+    value: str = typer.Option(None, "--value", "-v", help="配置值"),
+):
+    """
+    ⚙️ 管理配置
+
+    示例:
+      job-hunt config list
+      job-hunt config get -k ai.api_key
+      job-hunt config set -k ai.api_key -v sk-xxx
+    """
+    cfg = get_config()
+
+    if action == "list":
+        for section, kv in cfg.data().items():
+            if not isinstance(kv, dict):
+                continue
+            console.print(f"\n[bold cyan][{section}][/bold cyan]")
+            for k, v in kv.items():
+                # 敏感值脱敏
+                if v and any(s in k.lower() for s in ("key", "secret", "password", "token")):
+                    s = str(v)
+                    v = s[:4] + "****" if len(s) > 8 else "****"
+                console.print(f"  [dim]{k}:[/dim] {v}")
+        return
+
+    if action in ("get", "set"):
+        if not key or "." not in key:
+            print_error("请用 --key 指定配置项，格式 section.key（如 ai.api_key）")
+            raise typer.Exit(1)
+        section, k = key.split(".", 1)
+        if action == "get":
+            console.print(f"[bold]{key}[/bold] = {cfg.get(section, k, '（未设置）')}")
+        else:
+            if value is None:
+                print_error("请用 --value 指定要设置的值")
+                raise typer.Exit(1)
+            cfg.set(section, k, value)
+            cfg.save()
+            print_success(f"已设置 {key} = {value}")
+        return
+
+    print_error(f"未知操作: {action}（可选 list / get / set）")
+    raise typer.Exit(1)
+
+
+# ─── PIPELINE ─────────────────────────────────────────────
+
+pipeline_app = typer.Typer(help="管道工具：health / dedup / liveness", no_args_is_help=True)
+app.add_typer(pipeline_app, name="pipeline")
+
+
+@pipeline_app.command()
+def health():
+    """🩺 管道健康检查"""
+    db = get_db()
+    from .pipeline.normalize import validate_pipeline
+    result = validate_pipeline(db)
+    console.print(f"[bold]岗位总数:[/bold] {result.get('total_jobs', 0)}")
+    console.print(f"[bold]投递总数:[/bold] {result.get('total_applications', 0)}")
+    console.print(f"[bold]疑似重复:[/bold] {result.get('dup_count', 0)}")
+    console.print(f"[bold]孤儿投递:[/bold] {len(result.get('orphan_applications', []))}")
+    console.print(f"[bold]过期岗位:[/bold] {len(result.get('stale_jobs', []))}")
+
+
+@pipeline_app.command()
+def dedup():
+    """🧹 跨平台去重"""
+    db = get_db()
+    from .pipeline.dedup import find_cross_platform_duplicates
+    jobs = db.get_jobs(limit=10000, active_only=False)
+    dups = find_cross_platform_duplicates(jobs)
+    if not dups:
+        print_info("未发现跨平台重复岗位")
+        return
+    console.print(f"发现 {len(dups)} 组疑似重复:")
+    for a, b, sim in dups[:20]:
+        console.print(
+            f"  [yellow]{a.title}@{a.platform}[/yellow] ↔ "
+            f"[yellow]{b.title}@{b.platform}[/yellow]（相似度 {sim:.2f}）"
+        )
+
+
+@pipeline_app.command()
+def liveness(
+    n: int = typer.Option(50, "-n", "--limit", help="检测的岗位数量"),
+):
+    """💓 岗位有效期检测"""
+    db = get_db()
+    from .pipeline.liveness import batch_check_liveness
+    jobs = db.get_jobs(limit=n, active_only=True)
+    results = batch_check_liveness(jobs)
+    for r in results:
+        mark = "🟢" if r.is_active else "🔴"
+        console.print(f"  {mark} {r.display()}")
+
+
+# ─── FILTER ───────────────────────────────────────────────
+
+@app.command()
+def filter(
+    company: Optional[str] = typer.Argument(None, help="加入黑名单的公司名"),
+    list_only: bool = typer.Option(False, "--list", help="列出黑名单"),
+):
+    """
+    ⛔ 黑名单管理
+
+    示例:
+      job-hunt filter "某公司"       # 加入黑名单
+      job-hunt filter --list         # 列出黑名单
+    """
+    db = get_db()
+    from .applier.filter import load_blacklist, add_to_blacklist
+
+    if list_only or not company:
+        blacklist = load_blacklist(db)
+        if not blacklist:
+            print_info("黑名单为空")
+        else:
+            console.print("[bold]黑名单:[/bold]")
+            for c in blacklist:
+                console.print(f"  • {c}")
+        return
+
+    add_to_blacklist(db, company)
+    print_success(f"已将 [bold yellow]{company}[/bold yellow] 加入黑名单")
+
+
+# ─── REPORT ───────────────────────────────────────────────
+
+@app.command()
+def report():
+    """📋 生成求职报告（岗位库 + 匹配 + 投递概览）"""
+    db = get_db()
+    print_banner()
+
+    job_count = db.get_job_count()
+    jobs = db.get_jobs(limit=200, active_only=True)
+    matched = [j for j in jobs if j.match_score > 0]
+
+    console.print(f"[bold]岗位库:[/bold] {job_count} 个")
+    console.print(f"[bold]已匹配:[/bold] {len(matched)} 个\n")
+
+    if matched:
+        display_job_table(matched[:20], title="Top 匹配岗位")
+
+    stats = db.get_application_stats()
+    display_application_stats(stats)
+
+
+# ─── AUTO ─────────────────────────────────────────────────
+
+@app.command()
+def auto(
+    keyword: str = typer.Option(..., "-k", "--keyword", help="搜索关键词（逗号分隔）"),
+    city: str = typer.Option(..., "-c", "--city", help="城市（逗号分隔）"),
+    platform: str = typer.Option("all", "-p", "--platform", help="招聘平台"),
+):
+    """
+    ⚡ 全自动闭环：scan → match → report
+
+    示例:
+      job-hunt auto -k "Python 开发,环保" -c 南宁
+    """
+    import subprocess
+    steps = [
+        [sys.executable, "-m", "job_hunt", "scan", "-k", keyword, "-c", city, "-p", platform],
+        [sys.executable, "-m", "job_hunt", "match"],
+        [sys.executable, "-m", "job_hunt", "report"],
+    ]
+    for step in steps:
+        print_info(f"▶ 执行: {' '.join(step)}")
+        r = subprocess.run(step)
+        if r.returncode != 0:
+            print_error(f"步骤失败（退出码 {r.returncode}）: {' '.join(step)}")
+            raise typer.Exit(r.returncode)
+    print_success("✅ 全自动闭环完成！")
+
+
 # ─── ENTRY ───────────────────────────────────────────────
 
 def main_cli():
