@@ -435,18 +435,27 @@ def match(
     limit: Optional[int] = typer.Option(None, "--limit", "-n", help="匹配岗位数量"),
     min_score: float = typer.Option(0, "--min-score", "-m", help="最低匹配度（0-100）"),
     city: Optional[str] = typer.Option(None, "--city", "-c", help="城市筛选"),
+    ai: bool = typer.Option(False, "--ai", help="强制使用 AI 匹配（需先配置 API key）"),
 ):
     """
-    🎯 智能匹配 - AI分析岗位与简历的匹配度
-    
+    🎯 智能匹配 - 分析岗位与简历的匹配度
+
+    已配置 API key 时默认用 AI；未配置时自动回退到本地关键词匹配，无需 key 也能匹配。
+
     示例:
-      job-hunt match              # 匹配所有未评估的岗位
+      job-hunt match              # 匹配所有未评估的岗位（自动选择 AI/本地）
       job-hunt match -n 20 -m 60  # 匹配20个，只看60%以上
+      job-hunt match --ai         # 强制用 AI
     """
-    check_configured()
     db = get_db()
-    brain = get_brain()
     config = get_config()
+
+    # 匹配引擎：--ai 强制 AI；否则已配置 key 才用 AI，缺 key 回退本地关键词匹配
+    use_ai = bool(ai) or (AIBrain is not None and config.is_configured)
+    if ai and not config.is_configured:
+        print_error("--ai 需要先配置 API key（job-hunt init）")
+        raise typer.Exit(1)
+    brain = get_brain() if use_ai else None
 
     resume = db.get_resume()
     if not resume:
@@ -468,7 +477,8 @@ def match(
         return
 
     print_banner()
-    print_info(f"🤖 开始AI匹配分析 | 待评估: {len(unrated)} 个岗位 | 城市: {city or '全国'}")
+    engine = "AI" if brain is not None else "本地关键词"
+    print_info(f"🤖 开始匹配分析（{engine}） | 待评估: {len(unrated)} 个岗位 | 城市: {city or '全国'}")
 
     resume_dict = resume.to_dict()
     matched = []
@@ -477,7 +487,11 @@ def match(
         print_status(f"[{i}/{len(unrated)}] 分析: {job.title} - {job.company}")
 
         try:
-            result = brain.match_job(resume_dict, job.to_dict())
+            if brain is not None:
+                result = brain.match_job(resume_dict, job.to_dict())
+            else:
+                from .ai.matcher import KeywordMatcher
+                result = KeywordMatcher().match(job.to_dict())
             score = result.get("match_score", 0)
             reasons = result.get("reasons", [])
             gaps = result.get("gaps", [])
@@ -534,18 +548,25 @@ def match(
 @app.command()
 def eval(
     job_id: int = typer.Argument(..., help="岗位ID（从 match 结果中获取）"),
+    ai: bool = typer.Option(False, "--ai", help="强制使用 AI 评估（需先配置 API key）"),
 ):
     """
-    📊 深度评估 - AI六维分析某个岗位
-    
-    评估维度：岗位匹配度 | 职级定位 | 薪资水平 | 公司质量 | 成长空间 | 投递优先级
-    
+    📊 深度评估 - 分析岗位的匹配度/职级/薪资/公司质量/成长空间/投递优先级
+
+    已配置 API key 时默认用 AI；未配置时自动回退到本地关键词评估。
+
     示例:
       job-hunt eval 1       # 评估ID为1的岗位
+      job-hunt eval 1 --ai  # 强制用 AI
     """
-    check_configured()
     db = get_db()
-    brain = get_brain()
+    config = get_config()
+
+    use_ai = bool(ai) or (AIBrain is not None and config.is_configured)
+    if ai and not config.is_configured:
+        print_error("--ai 需要先配置 API key（job-hunt init）")
+        raise typer.Exit(1)
+    brain = get_brain() if use_ai else None
 
     job = db.get_job_by_id(job_id)
     if not job:
@@ -560,7 +581,11 @@ def eval(
     print_banner()
     print_info(f"🔬 深度评估: {job.title} - {job.company}")
 
-    result = brain.evaluate_job(job.to_dict(), resume.to_dict())
+    if brain is not None:
+        result = brain.evaluate_job(job.to_dict(), resume.to_dict())
+    else:
+        from .ai.matcher import KeywordMatcher
+        result = KeywordMatcher().evaluate(job.to_dict())
 
     # 显示评估结果
     from rich.panel import Panel
