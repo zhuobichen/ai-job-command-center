@@ -61,6 +61,32 @@ th {{ background: #F3F6F7; font-family: "MSYH-Bold"; }}
 MARGIN_L, MARGIN_T, MARGIN_R, MARGIN_B = 51, 42.5, 51, 39.7
 # WonderCV 风格边距更紧凑(左/右≈34pt)
 WONDER_MARGIN_L, WONDER_MARGIN_T, WONDER_MARGIN_R, WONDER_MARGIN_B = 34, 40, 34, 36
+# 一页紧凑版边距(更小, 塞下更多内容)
+COMPACT_MARGIN_L, COMPACT_MARGIN_T, COMPACT_MARGIN_R, COMPACT_MARGIN_B = 40, 24, 40, 22
+# 一页紧凑版证件照(更小, 避开右侧正文)
+COMPACT_PHOTO_W, COMPACT_PHOTO_H = 48, 67
+
+# 一页紧凑版 CSS: 缩小字号/行高/间距, 内容不变
+COMPACT_CSS = """
+@font-face {{ font-family: "MSYH"; src: url("{body}"); }}
+@font-face {{ font-family: "MSYH-Bold"; src: url("{head}"); }}
+body {{ font-family: "MSYH"; font-size: 8.5pt; line-height: 1.27; color: #35424B; }}
+h1 {{ font-family: "MSYH-Bold"; font-size: 18pt; color: #1F2933; margin: 0 0 1pt 0; }}
+h1 + p {{ color: #64727C; font-size: 8pt; margin-bottom: 3pt; }}
+h2 {{ font-family: "MSYH-Bold"; font-size: 10.5pt; color: #176B87;
+     border-bottom: 0.8pt solid #176B87; padding-bottom: 1pt;
+     margin: 4pt 0 2pt 0; }}
+h3 {{ font-family: "MSYH-Bold"; font-size: 9.5pt; color: #1F2933;
+     margin: 4pt 0 0.8pt 0; }}
+p  {{ margin: 0 0 1.5pt 0; }}
+strong {{ font-family: "MSYH-Bold"; color: #64727C; font-weight: bold; }}
+ul {{ margin: 1pt 0 2.5pt 0; padding-left: 13pt; }}
+li {{ margin-bottom: 0.8pt; }}
+li strong {{ color: #35424B; }}
+table {{ border-collapse: collapse; width: 100%; margin: 2pt 0; }}
+th, td {{ border: 0.5pt solid #DCE5E8; padding: 2pt 4pt; font-size: 8pt; }}
+th {{ background: #F3F6F7; font-family: "MSYH-Bold"; }}
+"""
 
 # 简历证件照(右上角)
 PHOTO = ROOT / "docs" / "项目资料" / "简历照片.jpg"
@@ -73,12 +99,16 @@ def insert_photo(pdf: Path, style: str) -> None:
         return
     doc = fitz.open(str(pdf))
     page = doc[0]
-    mr = WONDER_MARGIN_R if style == "wonder" else MARGIN_R
-    mt = WONDER_MARGIN_T if style == "wonder" else MARGIN_T
-    x1 = page.rect.width - mr - 10
-    x0 = x1 - PHOTO_W
-    y0 = mt - 8
-    y1 = y0 + PHOTO_H
+    if style == "wonder":
+        mr, mt, w, h = WONDER_MARGIN_R, WONDER_MARGIN_T, PHOTO_W, PHOTO_H
+    elif style == "compact":
+        mr, mt, w, h = COMPACT_MARGIN_R, COMPACT_MARGIN_T, COMPACT_PHOTO_W, COMPACT_PHOTO_H
+    else:
+        mr, mt, w, h = MARGIN_R, MARGIN_T, PHOTO_W, PHOTO_H
+    x1 = page.rect.width - mr - 8
+    x0 = x1 - w
+    y0 = (mt - 12) if style == "compact" else (mt - 4)
+    y1 = y0 + h
     page.insert_image(fitz.Rect(x0, y0, x1, y1), filename=str(PHOTO))
     doc.saveIncr()
     doc.close()
@@ -132,6 +162,11 @@ def build_pdf(style: str = "normal") -> Path:
                     f'<div style="color:#555;font-size:10pt;margin:1pt 0 3pt 0;">{role}</div>')
         html_body = re.sub(r"<h3>(.*?)</h3>\s*<p><strong>(.*?)</strong></p>",
                            _proj, html_body, flags=re.S)
+    elif style == "compact":
+        # 一页紧凑版: 缩小字号/行高/边距, 内容不变
+        css = COMPACT_CSS.format(
+            body=FONT_BODY.replace("\\", "/"), head=FONT_HEAD.replace("\\", "/"))
+        ml, mt, mr, mb = COMPACT_MARGIN_L, COMPACT_MARGIN_T, COMPACT_MARGIN_R, COMPACT_MARGIN_B
     else:
         # 反斜杠在 CSS 里是转义符, 字体路径统一用正斜杠
         css = CSS.format(body=FONT_BODY.replace("\\", "/"), head=FONT_HEAD.replace("\\", "/"))
@@ -177,11 +212,11 @@ def build_pdf(style: str = "normal") -> Path:
 
 def main() -> None:
     global SRC, OUT_MD, OUT_PDF
-    style = "normal"
+    style = "compact"  # 默认一页紧凑版(2026-08 用户决定)
     args = sys.argv[1:]
     if "--style" in args:
         i = args.index("--style")
-        style = args[i + 1] if i + 1 < len(args) else "normal"
+        style = args[i + 1] if i + 1 < len(args) else "compact"
         args = args[:i] + args[i + 2:]
     if args:
         SRC = Path(args[0]).resolve()
@@ -194,6 +229,8 @@ def main() -> None:
 
     if style == "wonder":
         OUT_PDF = OUT_PDF.with_name(OUT_PDF.stem + "_wonder.pdf")
+    elif style == "compact":
+        OUT_PDF = OUT_PDF.with_name(OUT_PDF.stem + "_1page.pdf")
 
     md = build_md()
     pdf = build_pdf(style)
