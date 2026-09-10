@@ -115,7 +115,10 @@ r2 = dd([j, j2])
 t("dedup same job", len(r2["unique"]) == 1, f"got {len(r2['unique'])}")
 
 from job_hunt.pipeline.liveness import check_liveness_by_age
-lr = check_liveness_by_age("2026-06-01T00:00:00")
+from datetime import datetime, timedelta
+# 用动态日期(而非硬编码), 避免测试随时间推移必然失败
+_recent = (datetime.now() - timedelta(days=10)).isoformat()
+lr = check_liveness_by_age(_recent)
 t("liveness active <30d", lr.is_active, lr.reason[:50])
 
 from job_hunt.pipeline.merge import write_tsv_addition

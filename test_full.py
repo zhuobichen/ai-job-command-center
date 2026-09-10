@@ -159,10 +159,12 @@ def main():
         assert normalize_status("unknown_xxx") == "evaluated"  # safe default
         test_pass("normalize 9 states")
 
-        # liveness by age
+        # liveness by age（用动态日期，避免测试随时间推移必然失败）
         from job_hunt.pipeline.liveness import check_liveness_by_age
-        r = check_liveness_by_age("2026-06-01T00:00:00")
-        assert r.is_active, f"should be active (only 20 days), got {r.reason}"
+        from datetime import datetime, timedelta
+        _recent = (datetime.now() - timedelta(days=10)).isoformat()
+        r = check_liveness_by_age(_recent)
+        assert r.is_active, f"should be active (only 10 days), got {r.reason}"
         test_pass("liveness by age")
 
         # merge: filename slug uses "Unknown" for None company

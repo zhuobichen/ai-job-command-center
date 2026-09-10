@@ -847,28 +847,40 @@ def apply(
 # ─── STATUS ──────────────────────────────────────────────
 
 @app.command()
-def status():
+def status(
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 输出（AI 可解析）"),
+):
     """
     📊 查看投递状态和历史记录
-    
+
     示例:
       job-hunt status
+      job-hunt status --json
     """
     db = get_db()
-    print_banner()
 
     stats = db.get_application_stats()
-    display_application_stats(stats)
-
     apps = db.get_applications(limit=30)
+    job_count = db.get_job_count()
+    resume = db.get_resume()
+
+    if json_output:
+        print(json.dumps({
+            "success": True,
+            "stats": stats,
+            "applications": apps,
+            "job_count": job_count,
+            "resume_imported": bool(resume),
+        }, ensure_ascii=False, indent=2, default=str))
+        return
+
+    print_banner()
+    display_application_stats(stats)
     display_application_table(apps)
 
     if not apps:
         print_info("还没有投递记录，试试 [bold]job-hunt match[/bold] 找到合适的岗位！")
 
-    # 岗位库统计
-    job_count = db.get_job_count()
-    resume = db.get_resume()
     print()
     console.print(
         f"[dim]岗位库: {job_count} 个 | 简历: {'已导入' if resume else '未导入'}[/dim]\n"
@@ -1178,29 +1190,41 @@ def _display_verify_result(result: VerifyResult, config):
 @app.command()
 def config(
     action: str = typer.Argument("list", help="list / get / set"),
-    key: str = typer.Option(None, "--key", "-k", help="配置项，格式 section.key，如 ai.api_key"),
-    value: str = typer.Option(None, "--value", "-v", help="配置值"),
+    key: str | None = typer.Option(None, "--key", "-k", help="配置项，格式 section.key，如 ai.api_key"),
+    value: str | None = typer.Option(None, "--value", "-v", help="配置值"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 输出（AI 可解析）"),
 ):
     """
     ⚙️ 管理配置
 
     示例:
       job-hunt config list
+      job-hunt config list --json
       job-hunt config get -k ai.api_key
       job-hunt config set -k ai.api_key -v sk-xxx
     """
     cfg = get_config()
 
     if action == "list":
-        for section, kv in cfg.data().items():
+        # 收集各 section + 敏感值脱敏
+        safe: dict = {}
+        for section, kv in cfg.data.items():  # data 是 @property, 不能加括号
             if not isinstance(kv, dict):
                 continue
-            console.print(f"\n[bold cyan][{section}][/bold cyan]")
+            safe[section] = {}
             for k, v in kv.items():
-                # 敏感值脱敏
                 if v and any(s in k.lower() for s in ("key", "secret", "password", "token")):
                     s = str(v)
                     v = s[:4] + "****" if len(s) > 8 else "****"
+                safe[section][k] = v
+
+        if json_output:
+            print(json.dumps({"success": True, **safe}, ensure_ascii=False, indent=2))
+            return
+
+        for section, kv in safe.items():
+            console.print(f"\n[bold cyan][{section}][/bold cyan]")
+            for k, v in kv.items():
                 console.print(f"  [dim]{k}:[/dim] {v}")
         return
 
@@ -1231,11 +1255,24 @@ app.add_typer(pipeline_app, name="pipeline")
 
 
 @pipeline_app.command()
-def health():
+def health(
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 输出（AI 可解析）"),
+):
     """🩺 管道健康检查"""
     db = get_db()
     from .pipeline.normalize import validate_pipeline
     result = validate_pipeline(db)
+
+    if json_output:
+        payload = {
+            "success": True,
+            **result,
+            "orphan_count": len(result.get("orphan_applications", [])),
+            "stale_count": len(result.get("stale_jobs", [])),
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
+        return
+
     console.print(f"[bold]岗位总数:[/bold] {result.get('total_jobs', 0)}")
     console.print(f"[bold]投递总数:[/bold] {result.get('total_applications', 0)}")
     console.print(f"[bold]疑似重复:[/bold] {result.get('dup_count', 0)}")
