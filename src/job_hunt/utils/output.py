@@ -8,8 +8,6 @@
 """
 
 import json
-import sys
-from typing import Any, Optional
 
 
 class Output:
@@ -72,8 +70,8 @@ class Output:
             from rich.console import Console
             Console().print(f"\n[dim]({title}: 无数据)[/dim]")
             return
-        from rich.table import Table
         from rich import box
+        from rich.table import Table
         cols = columns or [{"key": k, "label": k} for k in rows[0].keys()]
         from rich.console import Console
         t = Table(title=title, box=box.ROUNDED, expand=True)
@@ -109,7 +107,7 @@ class Output:
     def banner(self) -> None:
         if not self.json_mode:
             from rich.console import Console
-            Console().print(f"\n[bold cyan]  AI Job Hunt v0.3 — CLI-first, AI-ready[/bold cyan]\n")
+            Console().print("\n[bold cyan]  AI Job Hunt v0.3 — CLI-first, AI-ready[/bold cyan]\n")
 
     @staticmethod
     def prompt(msg: str, default: str = "", password: bool = False,

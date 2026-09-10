@@ -1,7 +1,6 @@
 """多平台搜索模板与站点配置"""
 
-from dataclasses import dataclass, field
-from typing import List
+from dataclasses import dataclass
 
 
 @dataclass
@@ -23,7 +22,7 @@ class SearchSite:
 
 # ─── 广西求职核心渠道 ─────────────────────────────────────
 
-GUANGXI_SITES: List[SearchSite] = [
+GUANGXI_SITES: list[SearchSite] = [
     # 🔴 第一优先级：广西本地主渠道
     SearchSite(
         name="广西人才网",
@@ -122,7 +121,7 @@ GUANGXI_SITES: List[SearchSite] = [
 
 # ─── 关键事业单位直连 ─────────────────────────────────────
 
-DIRECT_GOV_SITES: List[SearchSite] = [
+DIRECT_GOV_SITES: list[SearchSite] = [
     SearchSite(
         name="广西环科院",
         site_domain="gxhky.org.cn",
@@ -145,9 +144,9 @@ DIRECT_GOV_SITES: List[SearchSite] = [
 def generate_search_queries(
     keywords: str,
     city: str = "广西",
-    sites: List[SearchSite] = None,
+    sites: list[SearchSite] = None,
     max_per_site: int = 5,
-) -> List[dict]:
+) -> list[dict]:
     """生成多平台搜索查询列表
     
     Returns:
@@ -176,7 +175,7 @@ def generate_search_queries(
 def generate_direct_queries(
     keywords: str,
     city: str = "广西",
-) -> List[dict]:
+) -> list[dict]:
     """生成事业单位直连查询"""
     queries = []
     for site in DIRECT_GOV_SITES:
@@ -191,7 +190,7 @@ def generate_direct_queries(
     return queries
 
 
-def get_verify_queries(company_name: str) -> List[dict]:
+def get_verify_queries(company_name: str) -> list[dict]:
     """生成公司验证专用查询"""
     return [
         {

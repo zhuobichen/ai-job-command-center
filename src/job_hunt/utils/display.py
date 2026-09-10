@@ -1,15 +1,15 @@
 """Rich终端美化输出工具"""
 
-from typing import List
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
+
 from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
 from .. import __version__
-from ..models.job import Job
 from ..models.application import Application
+from ..models.job import Job
 from ..models.resume import Resume
 
 console = Console()
@@ -68,7 +68,7 @@ def create_progress() -> Progress:
     )
 
 
-def display_job_table(jobs: List[Job], title: str = "岗位列表"):
+def display_job_table(jobs: list[Job], title: str = "岗位列表"):
     """显示岗位表格"""
     table = Table(title=title, box=box.ROUNDED, expand=True)
     table.add_column("#", style="dim", width=4)
@@ -159,7 +159,7 @@ def display_application_stats(stats: dict):
     console.print(Panel(content.strip(), border_style="cyan"))
 
 
-def display_application_table(apps: List[Application]):
+def display_application_table(apps: list[Application]):
     """显示投递记录表格"""
     if not apps:
         console.print("\n[dim]暂无投递记录[/dim]\n")

@@ -2,13 +2,12 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 
 @dataclass
 class Application:
     """投递记录"""
-    id: Optional[int] = None
+    id: int | None = None
 
     job_id: int = 0
     job_title: str = ""
@@ -18,8 +17,8 @@ class Application:
     # 状态对齐 career-ops 规范: evaluated/applied/responded/interview/offer/rejected/discarded/skip/ignored
     status: str = "applied"
     applied_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    replied_at: Optional[str] = None
-    interview_at: Optional[str] = None
+    replied_at: str | None = None
+    interview_at: str | None = None
 
     # 投递内容
     greeting: str = ""          # 打招呼语

@@ -8,14 +8,13 @@
 - 详情页: https://www.guipin.com/job/{id}.html
 """
 
-import time
 import re
-from typing import List, Optional
+import time
 from urllib.parse import quote
 
 from ..models.job import Job
 from .base import BaseScraper
-from .gxrc import GX_CITY_KEYWORDS, GD_CITY_KEYWORDS
+from .gxrc import GD_CITY_KEYWORDS, GX_CITY_KEYWORDS
 
 
 class GuiPinScaper(BaseScraper):
@@ -31,9 +30,9 @@ class GuiPinScaper(BaseScraper):
         city: str = "",
         max_pages: int = 3,
         delay: float = 1.5,
-    ) -> List[Job]:
+    ) -> list[Job]:
         """搜索岗位"""
-        jobs: List[Job] = []
+        jobs: list[Job] = []
 
         for page in range(1, max_pages + 1):
             url = self._build_search_url(keyword, page)
@@ -110,7 +109,7 @@ class GuiPinScaper(BaseScraper):
         return False
 
     # ------------------------------------------------------------------
-    def _parse_card(self, card) -> Optional[Job]:
+    def _parse_card(self, card) -> Job | None:
         job = Job(platform=self.platform)
 
         # 标题 + 链接（优先 a 标签）

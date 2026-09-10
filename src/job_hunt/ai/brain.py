@@ -1,10 +1,9 @@
 """AI 编排层 - LLM 交互、意图识别、任务分发"""
 
 import json
-from typing import Optional
 
 from ..utils.config import Config
-from ..utils.display import print_ai, print_info
+from ..utils.display import print_ai
 
 
 # 懒加载 litellm，避免安装前阻塞CLI
@@ -30,7 +29,7 @@ class AIBrain:
         self.api_base = config.get("ai", "api_base", "") or "https://api.deepseek.com"
 
     def _call_llm(self, system: str, user: str, temperature: float = 0.7, 
-                  max_tokens: int = 2000, response_format: Optional[dict] = None) -> str:
+                  max_tokens: int = 2000, response_format: dict | None = None) -> str:
         """通用LLM调用"""
         kwargs = dict(
             model=f"{self.provider}/{self.model}",

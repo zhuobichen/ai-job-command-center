@@ -19,11 +19,9 @@ GD_CITY_KEYWORDS = [
 
 import asyncio
 import re
-import time
-from typing import List
 
 from ..models.job import Job
-from ..utils.display import print_status, print_info, print_success, print_warning
+from ..utils.display import print_info, print_status, print_success, print_warning
 
 
 class GxrcScraper:
@@ -71,7 +69,7 @@ class GxrcScraper:
         city: str = "",
         max_pages: int = 3,
         delay: float = 2.0,
-    ) -> List[Job]:
+    ) -> list[Job]:
         """搜索岗位"""
         import urllib.parse
 
@@ -79,7 +77,7 @@ class GxrcScraper:
 
         await self._init_browser()
         page = await self.context.new_page()
-        jobs: List[Job] = []
+        jobs: list[Job] = []
 
         try:
             # 构建搜索URL

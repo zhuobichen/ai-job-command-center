@@ -11,11 +11,9 @@
     merge_tracker(db, additions_dir)
 """
 
-import os
-import json
 import csv
+import os
 from datetime import datetime
-from typing import Optional
 
 from ..db.database import Database
 from ..models.job import Job

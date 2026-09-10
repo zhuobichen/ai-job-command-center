@@ -10,14 +10,13 @@
 """
 
 import json
-import time
 import os
-import re
-from typing import List, Optional, Callable
+import time
+from collections.abc import Callable
 from urllib.parse import quote
 
 from ..models.job import Job
-from .platforms import generate_search_queries, generate_direct_queries, get_verify_queries
+from .platforms import generate_direct_queries, generate_search_queries, get_verify_queries
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
@@ -27,7 +26,7 @@ HEADERS = {
 
 # ─── 底层搜索 ────────────────────────────────────────────
 
-def _bing_html(query: str, max_results: int = 10) -> List[dict]:
+def _bing_html(query: str, max_results: int = 10) -> list[dict]:
     """Bing HTML 搜索（httpx + bs4）"""
     import httpx
     from bs4 import BeautifulSoup
@@ -61,7 +60,7 @@ def _bing_html(query: str, max_results: int = 10) -> List[dict]:
     return results
 
 
-def _baidu_html(query: str, max_results: int = 10) -> List[dict]:
+def _baidu_html(query: str, max_results: int = 10) -> list[dict]:
     """百度搜索（备选）"""
     import httpx
     from bs4 import BeautifulSoup
@@ -92,7 +91,7 @@ def _baidu_html(query: str, max_results: int = 10) -> List[dict]:
     return results
 
 
-def search_web(query: str, max_results: int = 10) -> List[dict]:
+def search_web(query: str, max_results: int = 10) -> list[dict]:
     """统一搜索入口：Bing → 百度"""
     r = _bing_html(query, max_results)
     if not r:
@@ -102,7 +101,7 @@ def search_web(query: str, max_results: int = 10) -> List[dict]:
 
 # ─── LLM 解析 ────────────────────────────────────────────
 
-def _llm_parse(text: str, skills: str = "") -> List[dict]:
+def _llm_parse(text: str, skills: str = "") -> list[dict]:
     """LLM 从文本中提取招聘岗位"""
     try:
         from litellm import completion
@@ -133,7 +132,7 @@ def _llm_parse(text: str, skills: str = "") -> List[dict]:
         return json.loads(raw[s:e]) if s >= 0 and e > s else []
 
 
-def _llm_discover(keywords: str, city: str, skills: str = "") -> List[dict]:
+def _llm_discover(keywords: str, city: str, skills: str = "") -> list[dict]:
     """LLM 知识库推荐（搜索引擎不可用时的降级）"""
     try:
         from litellm import completion
@@ -163,8 +162,8 @@ def _llm_discover(keywords: str, city: str, skills: str = "") -> List[dict]:
 def multi_search(
     keywords: str, city: str = "广西", resume_skills: str = "",
     max_per_site: int = 5, delay: float = 0.8,
-    progress: Optional[Callable] = None,
-) -> List[Job]:
+    progress: Callable | None = None,
+) -> list[Job]:
     """多源搜索引擎 - 双模架构"""
     queries = generate_search_queries(keywords, city, max_per_site=max_per_site)
     all_queries = queries + generate_direct_queries(keywords, city)
@@ -236,7 +235,7 @@ def verify_search(company_name: str) -> str:
 
 # ─── Agent 导入模式 ───────────────────────────────────────
 
-def import_from_agent(results: List[dict]) -> List[Job]:
+def import_from_agent(results: list[dict]) -> list[Job]:
     """Agent 模式：接收外部 WebSearch 结果并解析
     
     results: [{"title":"...", "url":"...", "snippet":"..."}, ...]
@@ -266,7 +265,6 @@ def import_from_agent(results: List[dict]) -> List[Job]:
 
 def _api_key() -> str:
     """获取 API Key，优先级：配置 > 环境变量 > 硬编码"""
-    import os
     # 尝试从配置文件加载
     try:
         config_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "config.toml")

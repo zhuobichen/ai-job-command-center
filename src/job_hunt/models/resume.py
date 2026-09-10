@@ -1,18 +1,17 @@
 """简历数据模型"""
 
 from dataclasses import dataclass, field
-from typing import Optional
 from datetime import datetime
 
 
 @dataclass
 class Resume:
     """结构化简历"""
-    id: Optional[int] = None
+    id: int | None = None
     name: str = ""
     phone: str = ""
     email: str = ""
-    wechat: Optional[str] = None
+    wechat: str | None = None
 
     # 求职意向
     desired_city: str = ""

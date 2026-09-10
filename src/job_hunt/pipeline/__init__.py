@@ -6,7 +6,7 @@
 - liveness: 岗位有效期检测
 """
 
-from .merge import merge_tracker, write_tsv_addition
 from .dedup import dedup_jobs, make_job_key
-from .normalize import normalize_status, CANONICAL_STATES
-from .liveness import check_liveness, LivenessResult
+from .liveness import LivenessResult, check_liveness
+from .merge import merge_tracker, write_tsv_addition
+from .normalize import CANONICAL_STATES, normalize_status

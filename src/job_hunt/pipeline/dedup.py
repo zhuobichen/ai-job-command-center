@@ -8,7 +8,6 @@
 """
 
 import re
-from typing import List, Dict
 
 
 def make_job_key(job) -> str:
@@ -31,7 +30,7 @@ def _normalize(text: str) -> str:
     return text.lower()
 
 
-def dedup_jobs(jobs: List, key_func=None) -> dict:
+def dedup_jobs(jobs: list, key_func=None) -> dict:
     """对岗位列表去重
 
     Args:
@@ -44,7 +43,7 @@ def dedup_jobs(jobs: List, key_func=None) -> dict:
     if key_func is None:
         key_func = make_job_key
 
-    seen: Dict[str, int] = {}  # key -> list index
+    seen: dict[str, int] = {}  # key -> list index
     unique = []
     duplicates = []
 
@@ -85,7 +84,7 @@ def compute_title_similarity(title1: str, title2: str) -> float:
     return len(intersection) / len(union)
 
 
-def find_cross_platform_duplicates(jobs: List) -> List[tuple]:
+def find_cross_platform_duplicates(jobs: list) -> list[tuple]:
     """找出跨平台的重复岗位（宽松匹配）
 
     用标题相似度 > 0.6 + 公司名完全匹配 来判断。

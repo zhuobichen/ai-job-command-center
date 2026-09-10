@@ -7,10 +7,10 @@
 3. 根据抓取日期判断（超过30天标记为可疑）
 """
 
-import httpx
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+
+import httpx
 
 
 @dataclass

@@ -98,7 +98,7 @@ class AutoApplier:
                         else:
                             # 尝试回车发送
                             await page.keyboard.press("Enter")
-                            print_success(f"已发送打招呼语")
+                            print_success("已发送打招呼语")
                 except Exception as e:
                     print_warning(f"输入打招呼语失败: {e}")
 

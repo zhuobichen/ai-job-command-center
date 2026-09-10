@@ -9,14 +9,17 @@
 """
 
 from .base import BaseScraper
-from .boss import BossScraper
-from .gxrc import GxrcScraper
-from .guipin import GuiPinScaper
-from .job51 import Job51Scraper
 from .bing import bing_job_search
-from .engine import multi_search, verify_search, search_web, import_from_agent
+from .boss import BossScraper
+from .engine import import_from_agent, multi_search, search_web, verify_search
+from .guipin import GuiPinScaper
+from .gxrc import GxrcScraper
+from .job51 import Job51Scraper
 from .platforms import (
-    GUANGXI_SITES, DIRECT_GOV_SITES,
-    generate_search_queries, generate_direct_queries, get_verify_queries,
+    DIRECT_GOV_SITES,
+    GUANGXI_SITES,
     SearchSite,
+    generate_direct_queries,
+    generate_search_queries,
+    get_verify_queries,
 )

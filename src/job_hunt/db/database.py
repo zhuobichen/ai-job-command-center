@@ -1,14 +1,12 @@
 """SQLite数据库操作模块"""
 
-import sqlite3
-import json
 import os
-from typing import Optional
+import sqlite3
 from datetime import datetime
 
-from ..models.resume import Resume
-from ..models.job import Job
 from ..models.application import Application
+from ..models.job import Job
+from ..models.resume import Resume
 
 
 class Database:
@@ -135,7 +133,7 @@ class Database:
                 )
                 return cur.lastrowid
 
-    def get_resume(self) -> Optional[Resume]:
+    def get_resume(self) -> Resume | None:
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM resumes ORDER BY updated_at DESC LIMIT 1").fetchone()
             if row:
@@ -174,9 +172,9 @@ class Database:
         self,
         limit: int = 50,
         offset: int = 0,
-        city: Optional[str] = None,
-        platform: Optional[str] = None,
-        keyword: Optional[str] = None,
+        city: str | None = None,
+        platform: str | None = None,
+        keyword: str | None = None,
         min_match: float = 0,
         active_only: bool = True,
     ) -> list[Job]:
@@ -209,7 +207,7 @@ class Database:
 
         return [Job(**{k: row[k] for k in row.keys()}) for row in rows]
 
-    def get_job_count(self, city: Optional[str] = None, platform: Optional[str] = None) -> int:
+    def get_job_count(self, city: str | None = None, platform: str | None = None) -> int:
         conditions = ["is_active=1 AND is_deleted=0"]
         params = []
         if city:
@@ -224,7 +222,7 @@ class Database:
             row = conn.execute(f"SELECT COUNT(*) as cnt FROM jobs WHERE {where}", params).fetchone()
             return row["cnt"] if row else 0
 
-    def get_job_by_id(self, job_id: int) -> Optional[Job]:
+    def get_job_by_id(self, job_id: int) -> Job | None:
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
             if row:

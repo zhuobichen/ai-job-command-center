@@ -1,10 +1,7 @@
 """基础 HTML 抓取器 — httpx + BeautifulSoup，无需浏览器"""
 
-import time
-import json
 import os
 from abc import ABC, abstractmethod
-from typing import List, Optional
 from datetime import datetime
 
 import httpx
@@ -43,7 +40,7 @@ class BaseScraper(ABC):
     def close(self):
         self.client.close()
 
-    def _get(self, url: str) -> Optional[BeautifulSoup]:
+    def _get(self, url: str) -> BeautifulSoup | None:
         """GET 请求并返回 BeautifulSoup"""
         try:
             r = self.client.get(url)
@@ -65,7 +62,7 @@ class BaseScraper(ABC):
             f.write(f"<!-- {url} -->\n")
             f.write(html[:50000])
 
-    def _parse_job_cards(self, soup: BeautifulSoup, selectors: List[str]) -> List:
+    def _parse_job_cards(self, soup: BeautifulSoup, selectors: list[str]) -> list:
         """尝试多个选择器直到找到岗位卡片"""
         for sel in selectors:
             cards = soup.select(sel)
@@ -90,11 +87,11 @@ class BaseScraper(ABC):
         city: str = "",
         max_pages: int = 3,
         delay: float = 1.5,
-    ) -> List[Job]:
+    ) -> list[Job]:
         """搜索岗位"""
         ...
 
     @abstractmethod
-    def _parse_card(self, card) -> Optional[Job]:
+    def _parse_card(self, card) -> Job | None:
         """解析单个岗位卡片"""
         ...

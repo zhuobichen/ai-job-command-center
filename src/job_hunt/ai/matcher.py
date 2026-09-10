@@ -12,10 +12,8 @@
 """
 
 import re
-from typing import Optional
 
-from .archetype import detect_archetype, ARCHETYPES
-
+from .archetype import detect_archetype
 
 # 求职者技能画像（从简历中提取的关键词）
 PROFILE_SKILLS = [
@@ -147,7 +145,7 @@ class KeywordMatcher:
                 "experience_match": self._experience_match(title, desc, company),
                 "hard_match": self._hard_match(job),
                 "location_match": self._location_match(city),
-                "gaps": [f"关键词匹配评估，非AI精确分析"],
+                "gaps": ["关键词匹配评估，非AI精确分析"],
             },
             "C_level_strategy": {
                 "jd_level": self._guess_level(title),

@@ -19,13 +19,11 @@ browser-act 集成模块
 """
 
 import shlex
-import subprocess
-import os
 import shutil
-from typing import Optional, List
+import subprocess
 
 
-def _find_browser_act() -> Optional[str]:
+def _find_browser_act() -> str | None:
     """查找 browser-act 可执行文件路径"""
     # 优先用 uv tool 安装的
     path = shutil.which("browser-act")
@@ -38,7 +36,7 @@ def _find_browser_act() -> Optional[str]:
     return None
 
 
-def _build_cmd(args: List[str], timeout: int = 60) -> subprocess.CompletedProcess:
+def _build_cmd(args: list[str], timeout: int = 60) -> subprocess.CompletedProcess:
     """安全执行 browser-act 命令（使用列表参数避免 shell 注入）
 
     Args:

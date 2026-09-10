@@ -6,7 +6,6 @@
 输出: output/面试准备.html
 """
 import re
-import sys
 from pathlib import Path
 
 import markdown

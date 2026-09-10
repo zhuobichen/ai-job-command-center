@@ -21,26 +21,33 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
-from rich.prompt import Prompt, Confirm
-from rich.console import Console
+from rich.prompt import Confirm, Prompt
 
 from . import __version__
 from .db.database import Database
+from .models.application import Application
+from .models.job import Job
+from .models.resume import Resume
 from .utils.config import Config
 from .utils.display import (
-    print_banner, print_info, print_success, print_warning, print_error, print_ai,
-    print_status, display_job_table, display_job_detail, display_application_stats,
-    display_application_table, display_resume_summary, console,
+    console,
+    display_application_stats,
+    display_application_table,
+    display_job_table,
+    display_resume_summary,
+    print_banner,
+    print_error,
+    print_info,
+    print_status,
+    print_success,
+    print_warning,
 )
-from .models.resume import Resume
-from .models.job import Job
-from .models.application import Application
+
 try:
     from .ai.brain import AIBrain
-    from .ai.verifier import verify_company_with_search, verify_company, VerifyResult
+    from .ai.verifier import VerifyResult, verify_company, verify_company_with_search
 except ImportError:
     AIBrain = None
     verify_company = None
@@ -56,9 +63,9 @@ app = typer.Typer(
 )
 
 # 全局变量（在命令中初始化）
-_db: Optional[Database] = None
-_config: Optional[Config] = None
-_brain: Optional[AIBrain] = None
+_db: Database | None = None
+_config: Config | None = None
+_brain: AIBrain | None = None
 
 
 def get_db() -> Database:
@@ -293,8 +300,8 @@ def init():
 
 @app.command()
 def scan(
-    city: Optional[str] = typer.Option(None, "--city", "-c", help="城市搜索（如：广西、南宁）"),
-    keyword: Optional[str] = typer.Option(None, "--keyword", "-k", help="搜索关键词"),
+    city: str | None = typer.Option(None, "--city", "-c", help="城市搜索（如：广西、南宁）"),
+    keyword: str | None = typer.Option(None, "--keyword", "-k", help="搜索关键词"),
     platform: str = typer.Option("all", "--platform", "-p", help="招聘平台：all/gxrc/job51/boss/bing"),
     max_pages: int = typer.Option(3, "--pages", "-n", help="每站最大页数"),
     headless: bool = typer.Option(True, "--headless/--no-headless", help="BOSS直聘模式：是否无头浏览器"),
@@ -324,8 +331,8 @@ def scan(
 
     print_banner()
 
-    from .scrapers.job51 import Job51Scraper
     from .scrapers.bing import bing_job_search
+    from .scrapers.job51 import Job51Scraper
 
     all_new_jobs: list = []
 
@@ -432,9 +439,9 @@ def scan(
 
 @app.command()
 def match(
-    limit: Optional[int] = typer.Option(None, "--limit", "-n", help="匹配岗位数量"),
+    limit: int | None = typer.Option(None, "--limit", "-n", help="匹配岗位数量"),
     min_score: float = typer.Option(0, "--min-score", "-m", help="最低匹配度（0-100）"),
-    city: Optional[str] = typer.Option(None, "--city", "-c", help="城市筛选"),
+    city: str | None = typer.Option(None, "--city", "-c", help="城市筛选"),
     ai: bool = typer.Option(False, "--ai", help="强制使用 AI 匹配（需先配置 API key）"),
 ):
     """
@@ -630,7 +637,7 @@ def eval(
 
     red_flags = result.get("red_flags", [])
     if red_flags:
-        console.print(f"\n[bold red]🚩 红线:[/bold red] " + "；".join(str(x) for x in red_flags))
+        console.print("\n[bold red]🚩 红线:[/bold red] " + "；".join(str(x) for x in red_flags))
 
     # 保存评估结果
     db.update_job_eval(job_id, overall, json.dumps(result, ensure_ascii=False))
@@ -709,7 +716,7 @@ li {{ margin: 4px 0; }}
         except Exception as e:
             print_warning(f"PDF生成失败: {e}")
 
-    print_info(f"\n简历文件在 output/ 目录下，可直接使用")
+    print_info("\n简历文件在 output/ 目录下，可直接使用")
 
 
 def _md_to_html(md_text: str) -> str:
@@ -1011,7 +1018,7 @@ def parse(
 @app.command()
 def verify(
     company_name: str = typer.Argument(..., help="公司全称（如：广西环保产业投资集团有限公司）"),
-    direction: Optional[str] = typer.Option(None, "--direction", "-d", help="关注方向（如：环境信息系统）"),
+    direction: str | None = typer.Option(None, "--direction", "-d", help="关注方向（如：环境信息系统）"),
     deep: bool = typer.Option(False, "--deep", help="深度模式：会进行多次网络搜索交叉验证"),
 ):
     """
@@ -1054,7 +1061,6 @@ def verify(
 
     # ── 把验证的公司信息写入本地库（供 match/eval 使用）──
     db = get_db()
-    from .models.job import Job
     job = Job(
         title=f"[待扫描] {direction}相关岗位",
         company=company_name,
@@ -1080,7 +1086,7 @@ def _deep_search_company(company_name: str) -> str:
     """深度搜索：多源交叉搜索公司信息（真正调用搜索引擎）"""
     try:
         from .scrapers.engine import verify_search
-        print_status(f"  🔍 多源搜索中: 天眼查 → 官网 → 招聘 → 风险...")
+        print_status("  🔍 多源搜索中: 天眼查 → 官网 → 招聘 → 风险...")
         result = verify_search(company_name)
         if result.strip():
             return result
@@ -1273,7 +1279,7 @@ def liveness(
 
 @app.command()
 def filter(
-    company: Optional[str] = typer.Argument(None, help="加入黑名单的公司名"),
+    company: str | None = typer.Argument(None, help="加入黑名单的公司名"),
     list_only: bool = typer.Option(False, "--list", help="列出黑名单"),
 ):
     """
@@ -1284,7 +1290,7 @@ def filter(
       job-hunt filter --list         # 列出黑名单
     """
     db = get_db()
-    from .applier.filter import load_blacklist, add_to_blacklist
+    from .applier.filter import add_to_blacklist, load_blacklist
 
     if list_only or not company:
         blacklist = load_blacklist(db)

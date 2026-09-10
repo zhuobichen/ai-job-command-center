@@ -9,11 +9,9 @@ browser-act 全浏览器模式 + JS eval 提取，已验证有效（2026-06-21�
 """
 
 import json
-import subprocess
-import shlex
-import time
 import re
-from typing import List
+import subprocess
+import time
 from urllib.parse import quote
 
 from ..models.job import Job
@@ -30,7 +28,7 @@ class Job51Scraper:
         self.debug = debug
 
     def search(self, keyword: str, city: str = "",
-               max_results: int = 20, session: str = "w51") -> List[Job]:
+               max_results: int = 20, session: str = "w51") -> list[Job]:
         """搜索岗位
         注意：51job 的 jobArea 参数在 SPA 中不生效，
         城市过滤需在关键词中拼接城市名（如 "python开发 南宁"）
@@ -48,9 +46,9 @@ class Job51Scraper:
 
         return self._extract(url, js, session)
 
-    def _extract(self, url: str, js: str, session: str) -> List[Job]:
+    def _extract(self, url: str, js: str, session: str) -> list[Job]:
         exe = "browser-act"
-        jobs: List[Job] = []
+        jobs: list[Job] = []
 
         try:
             # Navigate
@@ -118,7 +116,7 @@ def _num(s: str) -> int:
 
 
 def extract_51job(keyword: str, city: str = "",
-                  max_results: int = 15) -> List[Job]:
+                  max_results: int = 15) -> list[Job]:
     """便捷函数：直接搜索前程无忧"""
     s = Job51Scraper()
     return s.search(keyword=keyword, city=city, max_results=max_results)

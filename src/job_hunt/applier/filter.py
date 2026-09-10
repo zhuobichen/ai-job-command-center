@@ -9,9 +9,7 @@
 5. BOSS直聘自动回复/机器人 → 跳过
 """
 
-import re
-from dataclasses import dataclass, field
-from typing import List, Optional
+from dataclasses import dataclass
 
 
 @dataclass
@@ -26,7 +24,7 @@ def should_filter(
     job,
     resume=None,
     config=None,
-    blacklist: Optional[List[str]] = None,
+    blacklist: list[str] | None = None,
 ) -> FilterResult:
     """综合过滤判断
 
@@ -102,14 +100,14 @@ def should_filter(
     if training_hit >= 2:
         return FilterResult(
             passed=False,
-            reason=f"疑似培训招生: 标题含多个培训信号词",
+            reason="疑似培训招生: 标题含多个培训信号词",
             filter_name="training_scam",
         )
 
     return FilterResult(passed=True)
 
 
-def load_blacklist(db=None) -> List[str]:
+def load_blacklist(db=None) -> list[str]:
     """从数据库加载黑名单"""
     if db:
         try:

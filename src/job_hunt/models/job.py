@@ -1,14 +1,13 @@
 """岗位数据模型"""
 
 from dataclasses import dataclass, field
-from typing import Optional
 from datetime import datetime
 
 
 @dataclass
 class Job:
     """招聘岗位"""
-    id: Optional[int] = None
+    id: int | None = None
 
     # 基本信息
     title: str = ""

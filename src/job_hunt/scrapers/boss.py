@@ -1,12 +1,9 @@
 """BOSS直聘岗位抓取模块 - 基于Playwright"""
 
 import asyncio
-import time
-from typing import List
-from datetime import datetime
 
 from ..models.job import Job
-from ..utils.display import print_status, print_info, print_success, print_warning, console
+from ..utils.display import print_info, print_status, print_success, print_warning
 
 
 class BossScraper:
@@ -59,13 +56,13 @@ class BossScraper:
         city: str = "",
         max_pages: int = 5,
         delay: float = 2.0,
-    ) -> List[Job]:
+    ) -> list[Job]:
         """搜索岗位"""
         print_status(f"🔍 BOSS直聘 | 搜索: {keyword} | 城市: {city or '全国'}")
 
         await self._init_browser()
         page = await self.context.new_page()
-        jobs: List[Job] = []
+        jobs: list[Job] = []
 
         try:
             # 构建搜索URL
@@ -109,7 +106,7 @@ class BossScraper:
                         job = await self._parse_card(card)
                         if job and job.title:
                             jobs.append(job)
-                    except Exception as e:
+                    except Exception:
                         continue
 
                 print_info(f"本页抓取 {len(job_cards)} 个岗位")
@@ -208,7 +205,7 @@ async def scan_boss(
     city: str = "",
     max_pages: int = 5,
     headless: bool = True,
-) -> List[Job]:
+) -> list[Job]:
     """便捷入口：扫描BOSS直聘"""
     scraper = BossScraper(headless=headless)
     try:

@@ -6,7 +6,6 @@
 
 import re
 import time
-from typing import List
 from urllib.parse import quote
 
 import httpx
@@ -18,14 +17,14 @@ from .base import HEADERS
 
 def bing_job_search(
     keyword: str, city: str = "广西", max_results: int = 15, delay: float = 1.0
-) -> List[Job]:
+) -> list[Job]:
     """Bing 搜索发现岗位（通用引擎，不上招聘网站反爬名单）
 
     通过 site: 限定 + 招聘关键词在 Bing 搜索，提取搜索结果中的链接。
     结果不进入招聘网站爬虫，只从搜索结果摘要提取基本信息。
     """
     client = httpx.Client(headers=HEADERS, timeout=20, follow_redirects=True)
-    jobs: List[Job] = []
+    jobs: list[Job] = []
 
     queries = [
         f'"{keyword}" {city} 招聘 site:gxrc.com',
