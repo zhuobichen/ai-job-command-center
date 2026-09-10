@@ -17,6 +17,7 @@
 依赖:
     markdown, PyMuPDF (fitz)  — 均已安装, 无需额外依赖
 """
+import io
 import re
 import sys
 from pathlib import Path
@@ -70,18 +71,18 @@ COMPACT_PHOTO_W, COMPACT_PHOTO_H = 48, 67
 COMPACT_CSS = """
 @font-face {{ font-family: "MSYH"; src: url("{body}"); }}
 @font-face {{ font-family: "MSYH-Bold"; src: url("{head}"); }}
-body {{ font-family: "MSYH"; font-size: 8.5pt; line-height: 1.27; color: #35424B; }}
+body {{ font-family: "MSYH"; font-size: 8.5pt; line-height: 1.24; color: #35424B; }}
 h1 {{ font-family: "MSYH-Bold"; font-size: 18pt; color: #1F2933; margin: 0 0 1pt 0; }}
 h1 + p {{ color: #64727C; font-size: 8pt; margin-bottom: 3pt; }}
 h2 {{ font-family: "MSYH-Bold"; font-size: 10.5pt; color: #176B87;
-     border-bottom: 0.8pt solid #176B87; padding-bottom: 1pt;
+     border-bottom: 0.8pt solid #176B87; padding-bottom: 1.2pt;
      margin: 4pt 0 2pt 0; }}
 h3 {{ font-family: "MSYH-Bold"; font-size: 9.5pt; color: #1F2933;
-     margin: 4pt 0 0.8pt 0; }}
-p  {{ margin: 0 0 1.5pt 0; }}
+     margin: 3.5pt 0 0.7pt 0; }}
+p  {{ margin: 0 0 1.2pt 0; }}
 strong {{ font-family: "MSYH-Bold"; color: #64727C; font-weight: bold; }}
-ul {{ margin: 1pt 0 2.5pt 0; padding-left: 13pt; }}
-li {{ margin-bottom: 0.8pt; }}
+ul {{ margin: 0.8pt 0 2.2pt 0; padding-left: 13pt; }}
+li {{ margin-bottom: 0.6pt; }}
 li strong {{ color: #35424B; }}
 table {{ border-collapse: collapse; width: 100%; margin: 2pt 0; }}
 th, td {{ border: 0.5pt solid #DCE5E8; padding: 2pt 4pt; font-size: 8pt; }}
@@ -175,15 +176,11 @@ def build_pdf(style: str = "normal") -> Path:
     # 在 html_body 全部处理后(含 wonder 的项目标题替换)再组装完整 HTML
     html = f'<html><head><meta charset="utf-8"></head><body>{html_body}</body></html>'
 
-    # 先渲染到 tmp 中间文件, 避免 Windows 下覆盖正式输出时的文件锁问题
-    import gc
-    import time
-
-    raw = ROOT / "tmp" / (OUT_PDF.stem + "_raw.pdf")
-    raw.parent.mkdir(parents=True, exist_ok=True)
-    raw.unlink(missing_ok=True)  # 清除上次残留(跨进程后已解锁)
+    # 全程内存渲染(不落任何中间文件): 渲染到 BytesIO → 子集化压缩 → 写最终 PDF
+    # 注: 曾用 tmp/*_raw.pdf 中间文件, 但 Windows 文件锁导致删不掉, 累积数百 MB 垃圾
+    buf = io.BytesIO()
     story = fitz.Story(html=html, user_css=css)
-    writer = fitz.DocumentWriter(str(raw))
+    writer = fitz.DocumentWriter(buf)
     media = fitz.paper_rect("a4")
     body = media + (ml, mt, -mr, -mb)
     while True:
@@ -196,17 +193,15 @@ def build_pdf(style: str = "normal") -> Path:
     writer.close()
 
     # 压缩: 完整嵌入的中文字体很大(数十MB), 子集化 + 垃圾回收 + 压缩流
-    doc = fitz.open(str(raw))
+    doc = fitz.open("pdf", buf.getvalue())
     doc.subset_fonts()
-    doc.save(str(OUT_PDF), garbage=4, deflate=True)
+    try:
+        doc.save(str(OUT_PDF), garbage=4, deflate=True)
+    except Exception as e:
+        doc.close()
+        print(f"[!] 写入失败(文件可能被占用, 如 WPS 打开了该 PDF): {e}")
+        raise
     doc.close()
-    gc.collect()
-    for _ in range(3):  # Windows 句柄延迟释放, 重试删除中间文件
-        try:
-            raw.unlink(missing_ok=True)
-            break
-        except PermissionError:
-            time.sleep(0.3)
     return OUT_PDF
 
 
