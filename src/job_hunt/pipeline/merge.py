@@ -84,7 +84,8 @@ def merge_tracker(
                 for row in reader:
                     if len(row) < 6:
                         continue
-                    num, date, company, role, status, score_str = row[:6]
+                    # 列顺序: 序号 日期 公司 岗位 状态 评分（前几列仅标注语义，不使用）
+                    _num, _date, company, role, _status, score_str = row[:6]
                     notes = row[8] if len(row) > 8 else ""
 
                     # 检查是否已存在（精确匹配 公司名+岗位标题）
