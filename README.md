@@ -173,6 +173,52 @@ python -m job_hunt auto -k "大气环境,数据分析" -c 南宁,广州 --ai
 
 ---
 
+## 📄 简历与求职资料
+
+除了招聘抓取，项目还包含一套**简历构建**与**求职资料**工具（`scripts/`）。
+
+### 简历构建（md 单源 → 一页 PDF）
+
+**唯一维护源**：`docs/项目资料/简历-正式版.md`（只改这一个文件）
+
+```bash
+python scripts/build_resume.py                     # 默认一页紧凑版(含证件照)
+python scripts/build_resume.py --style normal      # 两页舒适版
+python scripts/build_resume.py --style wonder      # WonderCV 风格(宋体+蓝标题)
+```
+
+- 输出：`output/简历_1page.pdf` + `resume.md`
+- 特性：证件照自动嵌入右上角、中文字体子集化压缩、自适应分页
+- 全程内存渲染，不产生中间文件
+
+### 面试手册（md → 精美 HTML）
+
+```bash
+python scripts/build_interview_html.py             # docs/项目资料/面试准备.md → output/面试准备.html
+```
+
+可折叠问答 + 目录导航 + 打印友好。
+
+### 识图保底脚本
+
+```bash
+DEEPSEEK_API_KEY=sk-xxx python scripts/vision.py <图片路径>   # DeepSeek 视觉模型描述图片
+```
+
+### 资料目录约定
+
+| 路径 | 用途 |
+|------|------|
+| `docs/项目资料/简历-正式版.md` | 简历唯一维护源 |
+| `docs/项目资料/简历-施显晟-vN.md` | 历史版本（版本递增，不覆盖） |
+| `docs/项目资料/面试准备.md` | 面试题库与话术 |
+| `docs/项目资料/简历-写作规范.md` | 排版/措辞约定 |
+| `output/归档/` | 历史版本归档 |
+
+> ⚠️ `docs/项目资料/` 含个人信息，已在 `.gitignore` 中排除，不会上传仓库。
+
+---
+
 ## Architecture
 
 ```
