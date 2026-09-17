@@ -110,7 +110,10 @@ def insert_photo(pdf: Path, style: str) -> None:
     x0 = x1 - w
     y0 = (mt - 12) if style == "compact" else (mt - 4)
     y1 = y0 + h
-    page.insert_image(fitz.Rect(x0, y0, x1, y1), filename=str(PHOTO))
+    rect = fitz.Rect(x0, y0, x1, y1)
+    page.insert_image(rect, filename=str(PHOTO))
+    # 白底证件照在白色简历纸上边界不清, 加细边框增强轮廓
+    page.draw_rect(rect, color=(0.72, 0.76, 0.80), width=0.6)
     doc.saveIncr()
     doc.close()
 
