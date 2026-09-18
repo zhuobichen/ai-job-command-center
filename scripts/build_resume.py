@@ -71,14 +71,14 @@ COMPACT_PHOTO_W, COMPACT_PHOTO_H = 48, 67
 COMPACT_CSS = """
 @font-face {{ font-family: "MSYH"; src: url("{body}"); }}
 @font-face {{ font-family: "MSYH-Bold"; src: url("{head}"); }}
-body {{ font-family: "MSYH"; font-size: 8.5pt; line-height: 1.24; color: #35424B; }}
-h1 {{ font-family: "MSYH-Bold"; font-size: 18pt; color: #1F2933; margin: 0 0 1pt 0; }}
-h1 + p {{ color: #64727C; font-size: 8pt; margin-bottom: 3pt; }}
-h2 {{ font-family: "MSYH-Bold"; font-size: 10.5pt; color: #176B87;
+body {{ font-family: "MSYH"; font-size: 8.7pt; line-height: 1.27; color: #35424B; }}
+h1 {{ font-family: "MSYH-Bold"; font-size: 18.5pt; color: #1F2933; margin: 0 0 1pt 0; }}
+h1 + p {{ color: #64727C; font-size: 8.2pt; margin-bottom: 3pt; }}
+h2 {{ font-family: "MSYH-Bold"; font-size: 10.8pt; color: #176B87;
      border-bottom: 0.8pt solid #176B87; padding-bottom: 1.2pt;
-     margin: 4pt 0 2pt 0; }}
-h3 {{ font-family: "MSYH-Bold"; font-size: 9.5pt; color: #1F2933;
-     margin: 3.5pt 0 0.7pt 0; }}
+     margin: 4.2pt 0 2.1pt 0; }}
+h3 {{ font-family: "MSYH-Bold"; font-size: 9.8pt; color: #1F2933;
+     margin: 3.8pt 0 0.75pt 0; }}
 p  {{ margin: 0 0 1.2pt 0; }}
 strong {{ font-family: "MSYH-Bold"; color: #64727C; font-weight: bold; }}
 ul {{ margin: 0.8pt 0 2.2pt 0; padding-left: 13pt; }}
