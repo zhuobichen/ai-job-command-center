@@ -187,7 +187,7 @@ python scripts/build_resume.py --style normal      # 两页舒适版
 python scripts/build_resume.py --style wonder      # WonderCV 风格(宋体+蓝标题)
 ```
 
-- 输出：`output/简历_1page.pdf` + `resume.md`
+- 输出：`output/施显晟简历.pdf` + `output/施显晟简历.md`（`--style wonder` 时 PDF 带 `_wonder` 后缀）
 - 特性：证件照自动嵌入右上角、中文字体子集化压缩、自适应分页
 - 全程内存渲染，不产生中间文件
 

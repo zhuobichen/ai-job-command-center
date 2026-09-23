@@ -11,8 +11,11 @@
     docs/项目资料/简历-正式版.md
 
 输出:
-    output/简历.md     成品 markdown(可直接投递/分享)
-    output/简历.pdf    排版好的 A4 PDF(微软雅黑, 蓝色主题)
+    output/施显晟简历.md   成品 markdown(可直接投递/分享)
+    output/施显晟简历.pdf  排版好的 A4 PDF(微软雅黑, 蓝色主题)
+
+    带姓名是为了投递时对方一眼能认出附件; --style wonder 会额外产出
+    output/施显晟简历_wonder.pdf, 默认 compact 不再加后缀。
 
 依赖:
     markdown, PyMuPDF (fitz)  — 均已安装, 无需额外依赖
@@ -27,8 +30,8 @@ import markdown
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "docs" / "项目资料" / "简历-正式版.md"
-OUT_MD = ROOT / "output" / "简历.md"
-OUT_PDF = ROOT / "output" / "简历.pdf"
+OUT_MD = ROOT / "output" / "施显晟简历.md"
+OUT_PDF = ROOT / "output" / "施显晟简历.pdf"
 
 # Windows 微软雅黑(正文 / 加粗标题)
 FONT_BODY = r"C:\Windows\Fonts\msyh.ttc"
@@ -225,10 +228,9 @@ def main() -> None:
         print(f"[!] 源文件不存在: {SRC}")
         sys.exit(1)
 
+    # 默认 compact 就是主交付件, 不加后缀; wonder 是备选风格, 单独命名以免覆盖
     if style == "wonder":
         OUT_PDF = OUT_PDF.with_name(OUT_PDF.stem + "_wonder.pdf")
-    elif style == "compact":
-        OUT_PDF = OUT_PDF.with_name(OUT_PDF.stem + "_1page.pdf")
 
     md = build_md()
     pdf = build_pdf(style)
