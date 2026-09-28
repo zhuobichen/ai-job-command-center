@@ -30,8 +30,9 @@ import markdown
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "docs" / "项目资料" / "简历-正式版.md"
-OUT_MD = ROOT / "output" / "施显晟简历.md"
-OUT_PDF = ROOT / "output" / "施显晟简历.pdf"
+# 投递用文件名 = 姓名 + 届别（HR 一眼知道是谁、哪一届）
+OUT_MD = ROOT / "output" / "施显晟简历_2027届.md"
+OUT_PDF = ROOT / "output" / "施显晟简历_2027届.pdf"
 
 # Windows 微软雅黑(正文 / 加粗标题)
 FONT_BODY = r"C:\Windows\Fonts\msyh.ttc"
@@ -74,7 +75,7 @@ COMPACT_PHOTO_W, COMPACT_PHOTO_H = 48, 67
 COMPACT_CSS = """
 @font-face {{ font-family: "MSYH"; src: url("{body}"); }}
 @font-face {{ font-family: "MSYH-Bold"; src: url("{head}"); }}
-body {{ font-family: "MSYH"; font-size: 8.7pt; line-height: 1.27; color: #35424B; }}
+body {{ font-family: "MSYH"; font-size: 8.7pt; line-height: 1.25; color: #35424B; }}
 h1 {{ font-family: "MSYH-Bold"; font-size: 18.5pt; color: #1F2933; margin: 0 0 1pt 0; }}
 h1 + p {{ color: #64727C; font-size: 8.2pt; margin-bottom: 3pt; }}
 h2 {{ font-family: "MSYH-Bold"; font-size: 10.8pt; color: #176B87;
@@ -215,6 +216,9 @@ def main() -> None:
     global SRC, OUT_MD, OUT_PDF
     style = "compact"  # 默认一页紧凑版(2026-08 用户决定)
     args = sys.argv[1:]
+    use_bg = "--bg" in args          # 先摘出开关, 避免被当成源文件路径
+    md_only = "--md-only" in args    # 只出 md, 不生成 PDF(供人工审核)
+    args = [a for a in args if a not in ("--bg", "--md-only")]
     if "--style" in args:
         i = args.index("--style")
         style = args[i + 1] if i + 1 < len(args) else "compact"
@@ -223,6 +227,14 @@ def main() -> None:
         SRC = Path(args[0]).resolve()
         OUT_MD = ROOT / "output" / f"{SRC.stem}.md"
         OUT_PDF = ROOT / "output" / f"{SRC.stem}.pdf"
+
+    # --bg: 改用"带项目背景说明"的源文件。
+    # 约定: 背景版是投递首选, 占干净文件名; 基础版加 _简版 后缀以便区分
+    if use_bg:
+        SRC = SRC.with_name(SRC.stem + "-背景.md")
+    else:
+        OUT_MD = OUT_MD.with_name(OUT_MD.stem + "_简版.md")
+        OUT_PDF = OUT_PDF.with_name(OUT_PDF.stem + "_简版.pdf")
 
     if not SRC.exists():
         print(f"[!] 源文件不存在: {SRC}")
@@ -233,9 +245,12 @@ def main() -> None:
         OUT_PDF = OUT_PDF.with_name(OUT_PDF.stem + "_wonder.pdf")
 
     md = build_md()
+    print(f"[OK] MD  -> {md}")
+    if md_only:
+        print("[i] --md-only: 已跳过 PDF 生成(审核 md 后去掉该参数重跑即可出 PDF)")
+        return
     pdf = build_pdf(style)
     insert_photo(pdf, style)
-    print(f"[OK] MD  -> {md}")
     print(f"[OK] PDF -> {pdf}  (style: {style}{', 含证件照' if PHOTO.exists() else ''})")
 
 
