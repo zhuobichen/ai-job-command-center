@@ -218,7 +218,8 @@ def main() -> None:
     args = sys.argv[1:]
     use_bg = "--bg" in args          # 先摘出开关, 避免被当成源文件路径
     md_only = "--md-only" in args    # 只出 md, 不生成 PDF(供人工审核)
-    args = [a for a in args if a not in ("--bg", "--md-only")]
+    use_ai = "--ai" in args          # 岗位适配版: 源文件取 -AI 后缀, 产物加 _AI 与原版并存
+    args = [a for a in args if a not in ("--bg", "--md-only", "--ai")]
     if "--style" in args:
         i = args.index("--style")
         style = args[i + 1] if i + 1 < len(args) else "compact"
@@ -235,6 +236,12 @@ def main() -> None:
     else:
         OUT_MD = OUT_MD.with_name(OUT_MD.stem + "_简版.md")
         OUT_PDF = OUT_PDF.with_name(OUT_PDF.stem + "_简版.pdf")
+
+    # --ai: 岗位适配版 —— 源文件 = 上面选定的源 + "-AI", 产物名加 _AI 以便与原版并存
+    if use_ai:
+        SRC = SRC.with_name(SRC.stem + "-AI.md")
+        OUT_MD = OUT_MD.with_name(OUT_MD.stem + "_AI.md")
+        OUT_PDF = OUT_PDF.with_name(OUT_PDF.stem + "_AI.pdf")
 
     if not SRC.exists():
         print(f"[!] 源文件不存在: {SRC}")
